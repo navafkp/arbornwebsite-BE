@@ -7,20 +7,25 @@ from .models import (
     Category, Product, ProductFamily,
     ProductVariant, Review, Tag, VariantImage,Size
 )
+
+
 class VariantImageInline(admin.TabularInline):
     model = VariantImage
     extra = 1
+
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ["name", "slug", "display_order"]
     prepopulated_fields = {"slug": ("name",)}
 
+
 @admin.register(ProductFamily)
 class ProductFamilyAdmin(admin.ModelAdmin):
     list_display = ["name", "category", "is_active"]
     list_filter = ["category", "is_active"]
     prepopulated_fields = {"slug": ("name",)}
+
 
 @admin.register(Tag)
 class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
@@ -30,6 +35,7 @@ class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
 
     def duplicate_object(self, tag):
         return catalog_duplicator.duplicate_tag(tag)
+
 
 @admin.register(Product)
 class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
@@ -42,6 +48,7 @@ class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
 
     def duplicate_object(self, product):
         return catalog_duplicator.duplicate_product(product)
+
 
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):
@@ -57,6 +64,7 @@ class SizeAdmin(admin.ModelAdmin):
         if db_field.name == "code":
             kwargs["widget"] = forms.Select(choices=list(SIZE_LABELS.items()))
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(DuplicateAdminMixin, admin.ModelAdmin):
@@ -77,12 +85,17 @@ class ProductVariantAdmin(DuplicateAdminMixin, admin.ModelAdmin):
         return catalog_duplicator.duplicate_variant(variant)
 
 
-
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ["product", "user_profile", "rating", "title", "is_active", "created_at"]
+    list_filter = ["rating", "is_active"]
+    search_fields = ["product__name", "title", "review"]
 
 
 # Custom admin ordering
-CATALOG_MODEL_ORDER = ["Category", "ProductFamily", "Product", "ProductVariant", "Tag", "Size"]
+CATALOG_MODEL_ORDER = ["Category", "ProductFamily", "Product", "ProductVariant", "Review", "Tag", "Size"]
 _default_get_app_list = admin.AdminSite.get_app_list
+
 
 def _catalog_ordered_get_app_list(self, request, app_label=None):
     app_list = _default_get_app_list(self, request, app_label=app_label)
@@ -94,5 +107,6 @@ def _catalog_ordered_get_app_list(self, request, app_label=None):
                 else len(CATALOG_MODEL_ORDER)
             )
     return app_list
+
 
 admin.site.get_app_list = _catalog_ordered_get_app_list.__get__(admin.site, admin.AdminSite)
