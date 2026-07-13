@@ -1,14 +1,17 @@
 from django.conf import settings
 from django.http import JsonResponse
 
-from config.decorators import api_endpoint, parse_json_body
+from config.decorators import api_endpoint, get_client_ip, parse_json_body
 
 from . import services
 
 
-# @api_endpoint(allowed_methods=["POST"], auth="none")
+@api_endpoint(allowed_methods=["POST"], auth="none")
 def google_auth(request):
     """POST id_token (Google's raw ID token) -> verify -> find-or-create -> JWT."""
+    if not services.google_auth_allowed(get_client_ip(request)):
+        return JsonResponse({"detail": "Too many attempts. Try again later."}, status=429)
+
     data = parse_json_body(request)
     id_token = data.get("id_token")
     if not id_token:
@@ -16,16 +19,20 @@ def google_auth(request):
 
     try:
         idinfo = services.verify_google_id_token(id_token)
-        user = services.get_or_create_user_from_google(idinfo)
+        user, created = services.get_or_create_user_from_google(idinfo)
     except services.AuthError as exc:
         return JsonResponse({"detail": exc.message}, status=exc.status_code)
 
     return JsonResponse(
-        {**services.issue_tokens(user), "user": services.auth_user_payload(user)}
+        {
+            **services.issue_tokens(user),
+            "user": services.auth_user_payload(user),
+            "is_new_user": created,
+        }
     )
 
 
-# @api_endpoint(allowed_methods=["POST"], auth="none")
+@api_endpoint(allowed_methods=["POST"], auth="none")
 def refresh_token(request):
     data = parse_json_body(request)
     refresh = data.get("refresh_token")
@@ -40,7 +47,7 @@ def refresh_token(request):
     return JsonResponse({"access_token": access_token})
 
 
-# @api_endpoint(allowed_methods=["POST"], auth="user_authentication")
+@api_endpoint(allowed_methods=["POST"], auth="user_authentication")
 def logout(request):
     data = parse_json_body(request)
     refresh = data.get("refresh_token")
@@ -55,7 +62,7 @@ def logout(request):
     return JsonResponse({"message": "Logged out successfully"})
 
 
-# @api_endpoint(allowed_methods=["GET", "PATCH"], auth="user_authentication")
+@api_endpoint(allowed_methods=["GET", "PATCH"], auth="user_authentication")
 def me(request):
     if request.method == "PATCH":
         data = parse_json_body(request)
@@ -69,7 +76,7 @@ def me(request):
     return JsonResponse(services.me_payload(request.user))
 
 
-# @api_endpoint(allowed_methods=["POST"], auth="none")
+@api_endpoint(allowed_methods=["POST"], auth="none")
 def otp_request(request):
     data = parse_json_body(request)
     email = data.get("email")
@@ -87,7 +94,7 @@ def otp_request(request):
     return JsonResponse({"message": "Code sent", "expires_in": settings.OTP_TTL_SECONDS})
 
 
-# @api_endpoint(allowed_methods=["POST"], auth="none")
+@api_endpoint(allowed_methods=["POST"], auth="none")
 def otp_verify(request):
     data = parse_json_body(request)
     email = data.get("email")
@@ -100,8 +107,12 @@ def otp_verify(request):
     except services.AuthError as exc:
         return JsonResponse({"detail": exc.message}, status=exc.status_code)
 
-    user = services.get_or_create_user_by_email(email)
+    user, created = services.get_or_create_user_by_email(email)
 
     return JsonResponse(
-        {**services.issue_tokens(user), "user": services.auth_user_payload(user)}
+        {
+            **services.issue_tokens(user),
+            "user": services.auth_user_payload(user),
+            "is_new_user": created,
+        }
     )

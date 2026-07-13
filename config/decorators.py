@@ -4,6 +4,7 @@ import uuid
 from functools import wraps
 
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -23,6 +24,16 @@ def parse_json_body(request):
 def _set_trace_id(request):
     request.trace_id = request.headers.get("X-Trace-Id") or str(uuid.uuid4())
     return request.trace_id
+
+
+def get_client_ip(request):
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[-1].strip()
+    return request.META.get("REMOTE_ADDR", "")
 
 
 def check_user_auth(request):
@@ -58,6 +69,7 @@ def api_endpoint(allowed_methods=("GET",), auth="user_authentication", log_respo
     """
 
     def decorator(view_func):
+        @csrf_exempt
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             trace_id = _set_trace_id(request)
