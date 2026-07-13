@@ -1,18 +1,17 @@
+from django import forms
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import User
-
 from .models import UserProfile
+from utils.common_utils import GENDER_CHOICES
 
 
-class UserProfileInline(admin.StackedInline):
-    model = UserProfile
-    can_delete = False
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ["user", "full_name", "phone", "is_account_blocked", "created_at"]
+    list_filter = ["is_account_blocked"]
+    search_fields = ["user__username", "user__email", "full_name", "phone"]
+    fields = ["is_account_blocked", "user", "full_name", "phone", "profile_image", "date_of_birth", "gender"]
 
-
-class UserAdmin(BaseUserAdmin):
-    inlines = [UserProfileInline]
-
-
-admin.site.unregister(User)
-admin.site.register(User, UserAdmin)
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "gender":
+            kwargs["widget"] = forms.Select(choices=[("", "---------")] + list(GENDER_CHOICES))
+        return super().formfield_for_dbfield(db_field, request, **kwargs)

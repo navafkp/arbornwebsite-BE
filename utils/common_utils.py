@@ -8,3 +8,5 @@ def generate_sku():
     return f"ARB-{next_number:06d}"
 
 SIZE_LABELS = {1: "M",2: "L",3: "XL",4: "XXL",5: "XXXL",6: "XXXXL"}
+
+GENDER_CHOICES = [("male", "Male"),("female", "Female"),("other", "Other")]

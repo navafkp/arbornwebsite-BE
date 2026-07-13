@@ -12,12 +12,14 @@ from .models import (
 class VariantImageInline(admin.TabularInline):
     model = VariantImage
     extra = 1
+    fields = ["image", "display_order", "is_primary", "metadata"]
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ["name", "slug", "display_order"]
     prepopulated_fields = {"slug": ("name",)}
+    fields = ["name", "slug", "image", "description", "display_order", "is_active", "metadata"]
 
 
 @admin.register(ProductFamily)
@@ -25,6 +27,7 @@ class ProductFamilyAdmin(admin.ModelAdmin):
     list_display = ["name", "category", "is_active"]
     list_filter = ["category", "is_active"]
     prepopulated_fields = {"slug": ("name",)}
+    fields = ["category", "name", "slug", "is_active", "metadata"]
 
 
 @admin.register(Tag)
@@ -32,6 +35,7 @@ class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     list_display = ["name", "slug", "display_order", "is_active"]
     prepopulated_fields = {"slug": ("name",)}
     duplicate_success_message = "Tag duplicated."
+    fields = ["name", "slug", "image", "description", "display_order", "is_active", "metadata"]
 
     def duplicate_object(self, tag):
         return catalog_duplicator.duplicate_tag(tag)
@@ -45,6 +49,10 @@ class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     autocomplete_fields = ["recommended_products"]
     duplicate_success_message = "Product duplicated."
+    fields = [
+        "product_family", "name", "slug", "short_description", "description",
+        "base_price", "base_discount_price", "recommended_products", "is_active", "metadata",
+    ]
 
     def duplicate_object(self, product):
         return catalog_duplicator.duplicate_product(product)
@@ -55,6 +63,7 @@ class SizeAdmin(admin.ModelAdmin):
     list_display = ["size_label", "display_order", "is_active"]
     list_filter = ["is_active"]
     search_fields = ["code"]
+    fields = ["code", "display_order", "measurement", "is_active", "metadata"]
 
     @admin.display(description="Size")
     def size_label(self, obj):
@@ -73,6 +82,10 @@ class ProductVariantAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     search_fields = ["product__name", "sku"]
     inlines = [VariantImageInline]
     duplicate_success_message = "Product variant duplicated."
+    fields = [
+        "product", "color", "color_code", "min_supported_size", "max_supported_size",
+        "price", "discount_price", "stock_quantity", "sku", "display_order", "is_active", "metadata",
+    ]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name in ("min_supported_size", "max_supported_size"):
@@ -90,6 +103,7 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ["product", "user_profile", "rating", "title", "is_active", "created_at"]
     list_filter = ["rating", "is_active"]
     search_fields = ["product__name", "title", "review"]
+    fields = ["product", "user_profile", "rating", "title", "review", "is_active"]
 
 
 # Custom admin ordering
