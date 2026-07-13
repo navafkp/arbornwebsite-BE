@@ -149,7 +149,18 @@ class VariantImage(TimeStampedModel):
         verbose_name_plural = "variant images"
         ordering = ["display_order", "id"]
 
+class Size(TimeStampedModel, ActivatableModel):
+    code = models.PositiveSmallIntegerField(unique=True)
+    display_order = models.PositiveSmallIntegerField()
+    measurement = models.CharField(max_length=50,blank=True)
+    metadata = models.JSONField(default=dict,blank=True)
 
+    def __str__(self):
+        return str(self.code)
+
+    class Meta:
+        verbose_name_plural = "sizes"
+        ordering = ["display_order"]
 
 class Review(TimeStampedModel, ActivatableModel):
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, related_name="reviews")
@@ -164,16 +175,3 @@ class Review(TimeStampedModel, ActivatableModel):
         return self.title
     class Meta:
         verbose_name_plural = "reviews"
-
-class Size(TimeStampedModel, ActivatableModel):
-    code = models.PositiveSmallIntegerField(unique=True)
-    display_order = models.PositiveSmallIntegerField()
-    measurement = models.CharField(max_length=50,blank=True)
-    metadata = models.JSONField(default=dict,blank=True)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name_plural = "sizes"
-        ordering = ["display_order"]
