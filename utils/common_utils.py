@@ -1,7 +1,8 @@
 from django.db import transaction
-from catalog.models import ProductVariant
 
 def generate_sku():
+    from catalog.models import ProductVariant
+
     last_variant = (
         ProductVariant.objects
         .select_for_update()

@@ -13,6 +13,8 @@ class Category(ActivatableModel, TimeStampedModel):
     display_order = models.PositiveSmallIntegerField(default=0)
     metadata = models.JSONField(default=dict, blank=True)
 
+    def __str__(self):
+        return self.name
     class Meta:
         verbose_name_plural = "categories"
         ordering = ["display_order", "name"]
@@ -22,7 +24,6 @@ class Category(ActivatableModel, TimeStampedModel):
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
-# recommendation josn----------------------------------------------------------------- for each product to show in ui
 class ProductFamily(ActivatableModel, TimeStampedModel):
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, related_name="product_families"
@@ -30,7 +31,9 @@ class ProductFamily(ActivatableModel, TimeStampedModel):
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     metadata = models.JSONField(default=dict, blank=True)
-
+    
+    def __str__(self):
+        return self.name
     class Meta:
         verbose_name_plural = "product families"
 
@@ -47,6 +50,9 @@ class Tag(ActivatableModel, TimeStampedModel):
     description = models.CharField(max_length=255, blank=True)
     display_order = models.PositiveSmallIntegerField(default=0)
     metadata = models.JSONField(default=dict, blank=True)
+    
+    def __str__(self):
+        return self.name
 
     class Meta:
         verbose_name_plural = "tags"
@@ -73,7 +79,10 @@ class Product(ActivatableModel, TimeStampedModel):
     metadata = models.JSONField(default=dict, blank=True)
     tags = models.ManyToManyField(Tag, through="ProductTag", related_name="products")
     recommended_products = models.ManyToManyField("self",symmetrical=False,blank=True,related_name="recommended_by")
-    
+    # display_order = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.name
     class Meta:
         verbose_name_plural = "products"
 
@@ -105,22 +114,25 @@ class ProductVariant(TimeStampedModel, ActivatableModel):
     stock_quantity = models.PositiveIntegerField(default=0)
     sku = models.CharField(max_length=100, unique=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+    # display_order = models.PositiveSmallIntegerField(default=0)
+
+    
+    def __str__(self):
+        return self.color or self.id
 
     def save(self, *args, **kwargs):
         if not self.sku:
-            self.sku = generate_sku(self)
+            self.sku = generate_sku()
         super().save(*args, **kwargs)
 
     class Meta:
         verbose_name_plural = "product variants"
         constraints = [
             models.UniqueConstraint(
-                fields=["product", "color", "size"],
+                fields=["product", "color"],
                 name="unique_product_variant"
             )
         ]
-
-
 
 class VariantImage(TimeStampedModel):
     variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name="images")
@@ -128,6 +140,9 @@ class VariantImage(TimeStampedModel):
     display_order = models.PositiveSmallIntegerField(default=0)
     is_primary = models.BooleanField(default=False)
     metadata = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return self.variant.color or self.variant.id
 
     class Meta:
         verbose_name_plural = "variant images"
@@ -146,3 +161,12 @@ class Review(TimeStampedModel, ActivatableModel):
 
     class Meta:
         verbose_name_plural = "reviews"
+
+class Size(TimeStampedModel, ActivatableModel):
+    code = models.PositiveSmallIntegerField(unique=True)
+    display_order = models.PositiveSmallIntegerField()
+    measurement = models.CharField(max_length=50,blank=True)
+    metadata = models.JSONField(default=dict,blank=True)
+    class Meta:
+        verbose_name_plural = "sizes"
+        ordering = ["display_order"]
