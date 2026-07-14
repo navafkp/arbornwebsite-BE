@@ -102,7 +102,14 @@ def blacklist_refresh_token(refresh_token):
         raise AuthError("Invalid or expired refresh token.", status_code=400)
 
 
-def auth_user_payload(user):
+def _profile_image_url(request, profile):
+    if not profile.profile_image:
+        return None
+    url = profile.profile_image.url
+    return request.build_absolute_uri(url) if request else url
+
+
+def auth_user_payload(user, request=None):
     name = user.profile.full_name or f"{user.first_name} {user.last_name}".strip()
     return {
         "id": user.id,
@@ -110,17 +117,17 @@ def auth_user_payload(user):
         "name": name,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "profile_image": user.profile.profile_image.url if user.profile.profile_image else None,
+        "profile_image": _profile_image_url(request, user.profile),
     }
 
 
-def me_payload(user):
+def me_payload(user, request=None):
     return {
         "id": user.id,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "profile_image": user.profile.profile_image.url if user.profile.profile_image else None,
+        "profile_image": _profile_image_url(request, user.profile),
     }
 
 

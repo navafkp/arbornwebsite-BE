@@ -26,7 +26,7 @@ def google_auth(request):
     return JsonResponse(
         {
             **services.issue_tokens(user),
-            "user": services.auth_user_payload(user),
+            "user": services.auth_user_payload(user, request),
             "is_new_user": created,
         }
     )
@@ -73,7 +73,7 @@ def me(request):
         )
         return JsonResponse({"message": "Profile updated"})
 
-    return JsonResponse(services.me_payload(request.user))
+    return JsonResponse(services.me_payload(request.user, request))
 
 
 @api_endpoint(allowed_methods=["POST"], auth="none")
@@ -112,7 +112,7 @@ def otp_verify(request):
     return JsonResponse(
         {
             **services.issue_tokens(user),
-            "user": services.auth_user_payload(user),
+            "user": services.auth_user_payload(user, request),
             "is_new_user": created,
         }
     )
