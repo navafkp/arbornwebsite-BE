@@ -182,3 +182,40 @@ OTP_IP_REQUEST_WINDOW_SECONDS = 600  # 10 minutes
 # --- Google auth rate limiting (per client IP) ---
 GOOGLE_AUTH_MAX_REQUESTS_PER_WINDOW = 5
 GOOGLE_AUTH_REQUEST_WINDOW_SECONDS = 30  # 5 minutes
+
+# --- Logging ---
+# request_response_log (used by api_endpoint) writes here so trace_id lookups
+# work the same way regardless of how the process is run in production.
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "request_response_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "app.log",
+            "maxBytes": 5 * 1024 * 1024,  # 5 MB
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "request_response": {
+            "handlers": ["console", "request_response_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

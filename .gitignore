@@ -6,3 +6,4 @@ venv/
 media/
 staticfiles/
 .DS_Store
+logs/

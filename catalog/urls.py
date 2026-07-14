@@ -1,7 +1,7 @@
 from django.urls import path
-
-from . import views
+from .views import size_list
 
 urlpatterns = [
-    path("v1/sizes", views.size_list, name="size-list")
+    # version 1
+    path("v1/sizes/", size_list, name="size-list")
 ]

@@ -14,6 +14,16 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 request_response_log = logging.getLogger("request_response")
 
 
+def api_response(status_code, message, data=None):
+    return JsonResponse(
+        {
+            "status_code": status_code,
+            "message": message,
+            "data": data if data is not None else {},
+        },
+        status=status_code,
+    )
+
 def parse_json_body(request):
     if not request.body:
         return {}
@@ -81,7 +91,7 @@ def _check_auth(request, auth_mode):
     return False, "Invalid authentication mode."
 
 
-def api_endpoint(allowed_methods=("GET",), auth="user_authentication", log_response=True):
+def api_endpoint(allowed_methods=("GET",), auth="user_authentication", log_response=False):
     """
     Wraps a plain function view with trace-id tagging, auth, method
     whitelisting, and centralized error logging. The view still builds and
@@ -95,11 +105,11 @@ def api_endpoint(allowed_methods=("GET",), auth="user_authentication", log_respo
             trace_id = _set_trace_id(request)
 
             if request.method not in allowed_methods:
-                return JsonResponse({"detail": "Method not allowed."}, status=405)
+                return api_response(405, "Method not allowed.")
 
             authenticated, message = _check_auth(request, auth)
             if not authenticated:
-                return JsonResponse({"detail": message}, status=401)
+                return api_response(401, message)
 
             try:
                 response = view_func(request, *args, **kwargs)
@@ -111,17 +121,19 @@ def api_endpoint(allowed_methods=("GET",), auth="user_authentication", log_respo
                     exc,
                     exc_info=True,
                 )
-                return JsonResponse(
-                    {"detail": "Something went wrong on our end. Please try again."},
-                    status=500,
-                )
+                return api_response(500, "Something went wrong on our end. Please try again.")
 
             if log_response:
+                try:
+                    message = json.loads(response.content).get("message", "")
+                except (json.JSONDecodeError, AttributeError):
+                    message = ""
                 request_response_log.info(
-                    "trace_id=%s path=%s status=%s",
+                    "trace_id=%s path=%s status=%s message=%s",
                     trace_id,
                     request.path,
                     getattr(response, "status_code", None),
+                    message,
                 )
             return response
 
