@@ -77,6 +77,9 @@ def profile(request):
 
 @api_endpoint(allowed_methods=["POST"], auth="none")
 def otp_request(request):
+    if not services.otp_request_allowed_for_ip(get_client_ip(request)):
+        return JsonResponse({"detail": "Too many requests. Try again later."}, status=429)
+
     data = parse_json_body(request)
     email = data.get("email")
     if not email:

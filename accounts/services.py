@@ -20,7 +20,6 @@ from utils.common_utils import GENDER_CHOICES
 
 from .models import OTP, SYSTEM_CONFIG_CACHE_TTL, SystemConfig, UserProfile
 
-GLOBAL_AUTH_VERSION_KEY = "global_auth_version"
 VALID_GENDERS = {choice[0] for choice in GENDER_CHOICES}
 
 
@@ -43,11 +42,17 @@ def verify_google_id_token(token):
 
 
 def google_auth_allowed(client_ip):
+    max_requests = get_config_int(
+        "google_auth_max_requests_per_window", settings.GOOGLE_AUTH_MAX_REQUESTS_PER_WINDOW
+    )
+    window_seconds = get_config_int(
+        "google_auth_request_window_seconds", settings.GOOGLE_AUTH_REQUEST_WINDOW_SECONDS
+    )
     cache_key = f"google_auth_rl:{client_ip}"
     count = cache.get(cache_key, 0)
-    if count >= settings.GOOGLE_AUTH_MAX_REQUESTS_PER_WINDOW:
+    if count >= max_requests:
         return False
-    cache.set(cache_key, count + 1, timeout=settings.GOOGLE_AUTH_REQUEST_WINDOW_SECONDS)
+    cache.set(cache_key, count + 1, timeout=window_seconds)
     return True
 
 
@@ -89,15 +94,20 @@ def get_or_create_user_from_google(idinfo):
     return user, created
 
 
-def get_global_auth_version():
-    cached = cache.get(GLOBAL_AUTH_VERSION_KEY)
+def get_config_int(key, default):
+    """Reads a tunable int from SystemConfig, falling back to `default` until someone sets it in admin."""
+    cached = cache.get(key)
     if cached is not None:
         return int(cached)
 
-    config = SystemConfig.objects.filter(name=GLOBAL_AUTH_VERSION_KEY).first()
-    value = config.value if config else "1"
-    cache.set(GLOBAL_AUTH_VERSION_KEY, value, timeout=SYSTEM_CONFIG_CACHE_TTL)
+    config = SystemConfig.objects.filter(name=key).first()
+    value = config.value if config else str(default)
+    cache.set(key, value, timeout=SYSTEM_CONFIG_CACHE_TTL)
     return int(value)
+
+
+def get_global_auth_version():
+    return get_config_int("global_auth_version", default=1)
 
 
 def issue_tokens(user):
@@ -214,9 +224,26 @@ def generate_otp_code():
 
 
 def otp_request_allowed(email):
-    window_start = timezone.now() - timedelta(seconds=settings.OTP_REQUEST_WINDOW_SECONDS)
+    window_seconds = get_config_int("otp_request_window_seconds", settings.OTP_REQUEST_WINDOW_SECONDS)
+    max_requests = get_config_int("otp_max_requests_per_window", settings.OTP_MAX_REQUESTS_PER_WINDOW)
+    window_start = timezone.now() - timedelta(seconds=window_seconds)
     recent_count = OTP.objects.filter(recipient=email, created_at__gte=window_start).count()
-    return recent_count < settings.OTP_MAX_REQUESTS_PER_WINDOW
+    return recent_count < max_requests
+
+
+def otp_request_allowed_for_ip(client_ip):
+    max_requests = get_config_int(
+        "otp_ip_max_requests_per_window", settings.OTP_IP_MAX_REQUESTS_PER_WINDOW
+    )
+    window_seconds = get_config_int(
+        "otp_ip_request_window_seconds", settings.OTP_IP_REQUEST_WINDOW_SECONDS
+    )
+    cache_key = f"otp_request_rl:{client_ip}"
+    count = cache.get(cache_key, 0)
+    if count >= max_requests:
+        return False
+    cache.set(cache_key, count + 1, timeout=window_seconds)
+    return True
 
 
 def create_otp(email):
