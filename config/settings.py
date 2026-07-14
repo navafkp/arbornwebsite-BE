@@ -175,6 +175,10 @@ OTP_MAX_ATTEMPTS = 5
 OTP_MAX_REQUESTS_PER_WINDOW = 3
 OTP_REQUEST_WINDOW_SECONDS = 600  # 10 minutes
 
+# --- OTP rate limiting (per client IP, on top of the per-email limit above) ---
+OTP_IP_MAX_REQUESTS_PER_WINDOW = 5
+OTP_IP_REQUEST_WINDOW_SECONDS = 600  # 10 minutes
+
 # --- Google auth rate limiting (per client IP) ---
 GOOGLE_AUTH_MAX_REQUESTS_PER_WINDOW = 5
 GOOGLE_AUTH_REQUEST_WINDOW_SECONDS = 30  # 5 minutes
