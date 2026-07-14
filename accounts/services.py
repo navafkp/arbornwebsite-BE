@@ -1,10 +1,12 @@
 import secrets
 from datetime import timedelta
 
+import requests
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.utils import timezone
 from google.auth.transport import requests as google_requests
@@ -42,6 +44,17 @@ def google_auth_allowed(client_ip):
     return True
 
 
+def _fetch_google_profile_image(picture_url):
+    if not picture_url:
+        return None
+    try:
+        response = requests.get(picture_url, timeout=5)
+        response.raise_for_status()
+    except requests.RequestException:
+        return None
+    return ContentFile(response.content, name="google_profile.jpg")
+
+
 def get_or_create_user_from_google(idinfo):
     email = idinfo["email"]
 
@@ -50,15 +63,21 @@ def get_or_create_user_from_google(idinfo):
         defaults={"username": email},
     )
 
-    if created:
-        UserProfile.objects.create(
-            user=user,
-            full_name=idinfo.get("name", ""),
-            is_email_verified=True,
-        )
-    elif not user.profile.is_email_verified:
-        user.profile.is_email_verified = True
-        user.profile.save(update_fields=["is_email_verified"])
+    profile, profile_created = UserProfile.objects.get_or_create(
+        user=user,
+        defaults={
+            "full_name": idinfo.get("name", ""),
+            "is_email_verified": True,
+        },
+    )
+
+    if profile_created:
+        image_file = _fetch_google_profile_image(idinfo.get("picture"))
+        if image_file:
+            profile.profile_image.save(image_file.name, image_file, save=True)
+    elif not profile.is_email_verified:
+        profile.is_email_verified = True
+        profile.save(update_fields=["is_email_verified"])
 
     return user, created
 
