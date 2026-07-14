@@ -3,7 +3,9 @@ import logging
 import uuid
 from functools import wraps
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
+from django.http.multipartparser import MultiPartParser
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -19,6 +21,14 @@ def parse_json_body(request):
         return json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
+
+
+def parse_multipart_body(request):
+    """Django only auto-parses multipart bodies for POST — this handles PATCH/PUT too."""
+    if not request.content_type.startswith("multipart/form-data"):
+        return {}, {}
+    parser = MultiPartParser(request.META, request, request.upload_handlers, request.encoding)
+    return parser.parse()
 
 
 def _set_trace_id(request):
@@ -48,6 +58,16 @@ def check_user_auth(request):
         user = jwt_auth.get_user(validated_token)
     except (InvalidToken, TokenError, AuthenticationFailed):
         return False, "Authentication failed. Please log in again."
+
+    from accounts.services import token_versions_valid
+
+    try:
+        profile = user.profile
+    except ObjectDoesNotExist:
+        return False, "Authentication failed. Please log in again."
+
+    if not token_versions_valid(validated_token, profile):
+        return False, "Session has been invalidated. Please log in again."
 
     request.user = user
     return True, ""

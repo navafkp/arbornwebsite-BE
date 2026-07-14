@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.http import JsonResponse
 
-from config.decorators import api_endpoint, get_client_ip, parse_json_body
+from config.decorators import api_endpoint, get_client_ip, parse_json_body, parse_multipart_body
 
 from . import services
 
@@ -49,28 +49,27 @@ def refresh_token(request):
 
 @api_endpoint(allowed_methods=["POST"], auth="user_authentication")
 def logout(request):
-    data = parse_json_body(request)
-    refresh = data.get("refresh_token")
-    if not refresh:
-        return JsonResponse({"detail": "refresh_token is required."}, status=400)
-
-    try:
-        services.blacklist_refresh_token(refresh)
-    except services.AuthError as exc:
-        return JsonResponse({"detail": exc.message}, status=exc.status_code)
-
+    services.invalidate_user_sessions(request.user)
     return JsonResponse({"message": "Logged out successfully"})
 
 
 @api_endpoint(allowed_methods=["GET", "PATCH"], auth="user_authentication")
-def me(request):
+def profile(request):
     if request.method == "PATCH":
-        data = parse_json_body(request)
-        services.update_me(
-            request.user,
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-        )
+        post_data, files = parse_multipart_body(request)
+        data = post_data if post_data else parse_json_body(request)
+
+        try:
+            services.update_me(
+                request.user,
+                first_name=data.get("first_name"),
+                last_name=data.get("last_name"),
+                gender=data.get("gender"),
+                date_of_birth=data.get("date_of_birth"),
+                profile_image=files.get("profile_image"),
+            )
+        except services.AuthError as exc:
+            return JsonResponse({"detail": exc.message}, status=exc.status_code)
         return JsonResponse({"message": "Profile updated"})
 
     return JsonResponse(services.me_payload(request.user, request))
@@ -91,7 +90,9 @@ def otp_request(request):
     code = services.create_otp(email)
     services.send_otp_email(email, code)
 
-    return JsonResponse({"message": "Code sent", "expires_in": settings.OTP_TTL_SECONDS})
+    return JsonResponse(
+        {"message": "OTP sent to your email", "expires_in_seconds": settings.OTP_TTL_SECONDS}
+    )
 
 
 @api_endpoint(allowed_methods=["POST"], auth="none")

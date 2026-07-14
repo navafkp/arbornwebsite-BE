@@ -25,7 +25,6 @@ INSTALLED_APPS = [
     # third-party
     "rest_framework",
     "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
     # local apps
@@ -77,6 +76,25 @@ DATABASES = {
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
     }
+}
+
+# --- Cache ---
+# Local/dev: no REDIS_URL set -> in-process LocMemCache (today's behavior).
+# Prod: set REDIS_URL (e.g. redis://host:6379/1) -> switches to a shared Redis
+# cache automatically. No code changes needed elsewhere to make that switch.
+REDIS_URL = config("REDIS_URL", default="")
+
+CACHES = {
+    "default": (
+        {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+        if REDIS_URL
+        else {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
