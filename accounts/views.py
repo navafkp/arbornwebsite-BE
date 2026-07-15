@@ -89,6 +89,11 @@ def otp_request(request):
     if not email:
         return api_response(400, "email is required.")
 
+    if services.is_otp_bypass_email(email):
+        return api_response(
+            200, "OTP sent to your email.", data={"expires_in_seconds": settings.OTP_TTL_SECONDS}
+        )
+
     if not services.otp_request_allowed(email):
         return api_response(429, "Too many codes requested. Try again later.")
 

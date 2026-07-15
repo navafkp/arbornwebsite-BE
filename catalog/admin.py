@@ -5,7 +5,7 @@ from utils.common_utils import SIZE_LABELS
 from utils.catalog_duplicators import catalog_duplicator
 from .models import (
     Category, Product, ProductFamily, ProductTag,
-    ProductVariant, Review, Tag, VariantImage,Size
+    ProductVariant, Review, Tag, VariantImage,Size, Wishlist
 )
 
 
@@ -112,6 +112,20 @@ class ReviewAdmin(admin.ModelAdmin):
     list_filter = ["rating", "is_active"]
     search_fields = ["product__name", "title", "review"]
     fields = ["product", "user_profile", "rating", "title", "review", "is_active"]
+
+
+@admin.register(Wishlist)
+class WishlistAdmin(admin.ModelAdmin):
+    """Read-only: wishlist entries are user actions, not something admins hand-author."""
+
+    list_display = ["user_profile", "product", "created_at"]
+    search_fields = ["user_profile__user__email", "product__name"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 # Custom admin ordering

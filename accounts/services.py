@@ -232,6 +232,19 @@ def generate_otp_code():
     return f"{secrets.randbelow(10 ** settings.OTP_LENGTH):0{settings.OTP_LENGTH}d}"
 
 
+def _get_otp_bypass():
+    """Reads the 'email_for_otp' SystemConfig row: value=fixed code, metadata.email=allowed emails."""
+    config = SystemConfig.objects.filter(name="email_for_otp").first()
+    if not config:
+        return None, []
+    return config.value, config.metadata.get("email", [])
+
+
+def is_otp_bypass_email(email):
+    _, bypass_emails = _get_otp_bypass()
+    return email in bypass_emails
+
+
 def otp_request_allowed(email):
     window_seconds = get_config_int("otp_request_window_seconds", settings.OTP_REQUEST_WINDOW_SECONDS)
     max_requests = get_config_int("otp_max_requests_per_window", settings.OTP_MAX_REQUESTS_PER_WINDOW)
@@ -286,6 +299,12 @@ def send_otp_email(email, code):
 
 
 def verify_otp(email, code):
+    bypass_code, bypass_emails = _get_otp_bypass()
+    if bypass_code and email in bypass_emails:
+        if code != bypass_code:
+            raise AuthError("Incorrect code.", status_code=400)
+        return
+
     otp = OTP.objects.filter(recipient=email, consumed=False).order_by("-created_at").first()
     if not otp or otp.is_expired():
         raise AuthError("Code expired or not found. Request a new one.", status_code=400)

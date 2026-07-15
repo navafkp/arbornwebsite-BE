@@ -182,3 +182,15 @@ class Review(TimeStampedModel, ActivatableModel):
 
     class Meta:
         verbose_name_plural = "reviews"
+
+class Wishlist(TimeStampedModel):
+    user_profile = models.ForeignKey(
+        "accounts.UserProfile", on_delete=models.CASCADE, related_name="wishlist_items"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wishlisted_by")
+
+    def __str__(self):
+        return f"{self.user_profile} - {self.product}"
+
+    class Meta:
+        verbose_name_plural = "wishlist items"

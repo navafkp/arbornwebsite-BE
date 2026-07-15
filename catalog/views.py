@@ -1,4 +1,4 @@
-from config.decorators import api_endpoint, api_response, get_base_url
+from config.decorators import api_endpoint, api_response, get_base_url, parse_json_body
 from . import services
 
 
@@ -44,3 +44,59 @@ def product_list(request):
         size=size, category_slug=category_slug, tag_slug=tag_slug, base_url=get_base_url(request)
     )
     return api_response(200, "Products fetched successfully", data=payload)
+
+
+@api_endpoint(allowed_methods=["GET"], auth="none")
+def product_detail(request, slug):
+    payload = services.get_product_detail(slug, base_url=get_base_url(request))
+    if payload is None:
+        return api_response(404, "Product not found.")
+    return api_response(200, "Product fetched successfully", data=payload)
+
+
+@api_endpoint(allowed_methods=["GET", "POST"], auth="user_authentication")
+def wishlist(request):
+    if request.method == "POST":
+        data = parse_json_body(request)
+        product_id = data.get("product_id")
+        if not product_id:
+            return api_response(400, "product_id is required.")
+
+        added = services.add_to_wishlist(request.user.profile, product_id)
+        if added is None:
+            return api_response(404, "Product not found.")
+        return api_response(200, "Added to wishlist.")
+
+    payload = services.get_wishlist(request.user.profile, get_base_url(request))
+    return api_response(200, "Wishlist fetched successfully", data=payload)
+
+
+@api_endpoint(allowed_methods=["DELETE"], auth="user_authentication")
+def wishlist_remove(request, product_id):
+    removed = services.remove_from_wishlist(request.user.profile, product_id)
+    if not removed:
+        return api_response(404, "Item not found in wishlist.")
+    return api_response(200, "Removed from wishlist.")
+
+
+@api_endpoint(allowed_methods=["POST"], auth="user_authentication")
+def product_review_create(request, slug):
+    data = parse_json_body(request)
+
+    try:
+        rating = int(data.get("rating"))
+    except (TypeError, ValueError):
+        return api_response(400, "rating must be an integer between 1 and 5.")
+    if not 1 <= rating <= 5:
+        return api_response(400, "rating must be an integer between 1 and 5.")
+
+    review_text = data.get("review")
+    if not review_text:
+        return api_response(400, "review is required.")
+
+    payload = services.create_review(
+        request.user.profile, slug, rating, review_text, title=data.get("title", "")
+    )
+    if payload is None:
+        return api_response(404, "Product not found.")
+    return api_response(200, "Review submitted successfully.", data=payload)
