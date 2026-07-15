@@ -116,11 +116,5 @@ def otp_verify(request):
     user, created = services.get_or_create_user_by_email(email)
 
     return api_response(
-        200,
-        "Signed in successfully.",
-        data={
-            **services.issue_tokens(user),
-            "user": services.auth_user_payload(user, get_base_url(request)),
-            "is_new_user": created,
-        },
+        200, "Signed in successfully.", data=services.build_login_payload(user, created, get_base_url(request))
     )
