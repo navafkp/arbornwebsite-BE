@@ -46,6 +46,11 @@ def _set_trace_id(request):
     return request.trace_id
 
 
+def get_base_url(request):
+    """The one piece of request-derived data services need for building absolute URLs — pass this, not `request`."""
+    return request.build_absolute_uri("/").rstrip("/")
+
+
 def get_client_ip(request):
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:

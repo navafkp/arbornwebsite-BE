@@ -4,7 +4,7 @@ from utils.admin_common import DuplicateAdminMixin
 from utils.common_utils import SIZE_LABELS
 from utils.catalog_duplicators import catalog_duplicator
 from .models import (
-    Category, Product, ProductFamily,
+    Category, Product, ProductFamily, ProductTag,
     ProductVariant, Review, Tag, VariantImage,Size
 )
 
@@ -13,6 +13,12 @@ class VariantImageInline(admin.TabularInline):
     model = VariantImage
     extra = 1
     fields = ["image", "display_order", "is_primary", "metadata"]
+
+
+class ProductTagInline(admin.TabularInline):
+    model = ProductTag
+    extra = 1
+    autocomplete_fields = ["tag"]
 
 
 @admin.register(Category)
@@ -33,6 +39,7 @@ class ProductFamilyAdmin(admin.ModelAdmin):
 @admin.register(Tag)
 class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     list_display = ["name", "slug", "display_order", "is_active"]
+    search_fields = ["name", "slug"]
     prepopulated_fields = {"slug": ("name",)}
     duplicate_success_message = "Tag duplicated."
     fields = ["name", "slug", "image", "description", "display_order", "is_active", "metadata"]
@@ -48,6 +55,7 @@ class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     search_fields = ["name", "slug", "short_description"]
     prepopulated_fields = {"slug": ("name",)}
     autocomplete_fields = ["recommended_products"]
+    inlines = [ProductTagInline]
     duplicate_success_message = "Product duplicated."
     fields = [
         "product_family", "name", "slug", "short_description", "description",

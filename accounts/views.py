@@ -3,6 +3,7 @@ from django.conf import settings
 from config.decorators import (
     api_endpoint,
     api_response,
+    get_base_url,
     get_client_ip,
     parse_json_body,
     parse_multipart_body,
@@ -29,13 +30,7 @@ def google_auth(request):
         return api_response(exc.status_code, exc.message)
 
     return api_response(
-        200,
-        "Signed in successfully.",
-        data={
-            **services.issue_tokens(user),
-            "user": services.auth_user_payload(user, request),
-            "is_new_user": created,
-        },
+        200, "Signed in successfully.", data=services.build_login_payload(user, created, get_base_url(request))
     )
 
 
@@ -79,7 +74,9 @@ def profile(request):
             return api_response(exc.status_code, exc.message)
         return api_response(200, "Profile updated.")
 
-    return api_response(200, "Successfully fetched profile", data=services.me_payload(request.user, request))
+    return api_response(
+        200, "Successfully fetched profile", data=services.me_payload(request.user, get_base_url(request))
+    )
 
 
 @api_endpoint(allowed_methods=["POST"], auth="none")
@@ -123,7 +120,7 @@ def otp_verify(request):
         "Signed in successfully.",
         data={
             **services.issue_tokens(user),
-            "user": services.auth_user_payload(user, request),
+            "user": services.auth_user_payload(user, get_base_url(request)),
             "is_new_user": created,
         },
     )

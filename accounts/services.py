@@ -117,6 +117,15 @@ def issue_tokens(user):
     return {"access_token": str(refresh.access_token), "refresh_token": str(refresh)}
 
 
+def build_login_payload(user, created, base_url=None):
+    """Shared by every login flow (Google, OTP) — same tokens + user + is_new_user shape."""
+    return {
+        **issue_tokens(user),
+        "user": auth_user_payload(user, base_url),
+        "is_new_user": created,
+    }
+
+
 def token_versions_valid(payload, profile):
     return (
         payload.get("token_version") == profile.token_version
@@ -146,14 +155,14 @@ def invalidate_user_sessions(user):
     UserProfile.objects.filter(user=user).update(token_version=F("token_version") + 1)
 
 
-def _profile_image_url(request, profile):
+def _profile_image_url(base_url, profile):
     if not profile.profile_image:
         return None
     url = profile.profile_image.url
-    return request.build_absolute_uri(url) if request else url
+    return f"{base_url}{url}" if base_url else url
 
 
-def auth_user_payload(user, request=None):
+def auth_user_payload(user, base_url=None):
     name = user.profile.full_name or f"{user.first_name} {user.last_name}".strip()
     return {
         "id": user.id,
@@ -161,11 +170,11 @@ def auth_user_payload(user, request=None):
         "name": name,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "profile_image": _profile_image_url(request, user.profile),
+        "profile_image": _profile_image_url(base_url, user.profile),
     }
 
 
-def me_payload(user, request=None):
+def me_payload(user, base_url=None):
     return {
         "id": user.id,
         "email": user.email,
@@ -173,7 +182,7 @@ def me_payload(user, request=None):
         "last_name": user.last_name,
         "gender": user.profile.gender,
         "date_of_birth": user.profile.date_of_birth,
-        "profile_image": _profile_image_url(request, user.profile),
+        "profile_image": _profile_image_url(base_url, user.profile),
     }
 
 
