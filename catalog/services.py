@@ -6,7 +6,11 @@ from .models import Category, Product, Review, Size, Tag, VariantImage, Wishlist
 
 def get_size_list():
     return [
-        {"size_code": size.code, "display_text": SIZE_LABELS.get(size.code, str(size.code))}
+        {
+            "size_code": size.code,
+            "display_text": SIZE_LABELS.get(size.code, str(size.code)),
+            "measurement": size.measurement,
+        }
         for size in Size.objects.filter(is_active=True)
     ]
 
@@ -107,7 +111,11 @@ def _variant_sizes_payload(variant):
         code__lte=variant.max_supported_size,
     )
     return [
-        {"size_code": size.code, "display_text": SIZE_LABELS.get(size.code, str(size.code))}
+        {
+            "size_code": size.code,
+            "display_text": SIZE_LABELS.get(size.code, str(size.code)),
+            "measurement": size.measurement,
+        }
         for size in sizes
     ]
 
