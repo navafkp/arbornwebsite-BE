@@ -62,6 +62,10 @@ TEMPLATES = [
     },
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    "https://navafkp.github.io",
+]
+
 WSGI_APPLICATION = "config.wsgi.application"
 
 # --- Database (Postgres) ---
