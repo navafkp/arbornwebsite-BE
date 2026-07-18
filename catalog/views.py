@@ -30,32 +30,40 @@ def explore(request):
 
 @api_endpoint(allowed_methods=["GET"], auth="none")
 def product_list(request):
-    size = request.GET.get("size")
-    if size is not None:
-        try:
-            size = int(size)
-        except ValueError:
-            return api_response(400, "Invalid size.")
+    size_params = request.GET.getlist("size")
+    sizes = []
+    for s in size_params:
+        for part in str(s).split(","):
+            part = part.strip()
+            if part:
+                try:
+                    sizes.append(int(part))
+                except ValueError:
+                    return api_response(400, "Invalid size.")
 
     category_slug = request.GET.get("category")
     tag_slug = request.GET.get("tag")
 
     payload = services.list_products(
-        size=size, category_slug=category_slug, tag_slug=tag_slug, base_url=get_base_url(request)
+        sizes=sizes if sizes else None, category_slug=category_slug, tag_slug=tag_slug, base_url=get_base_url(request)
     )
     return api_response(200, "Products fetched successfully", data=payload)
 
 
 @api_endpoint(allowed_methods=["GET"], auth="none")
 def product_detail(request, slug):
-    size = request.GET.get("size")
-    if size is not None:
-        try:
-            size = int(size)
-        except ValueError:
-            return api_response(400, "Invalid size.")
+    size_params = request.GET.getlist("size")
+    sizes = []
+    for s in size_params:
+        for part in str(s).split(","):
+            part = part.strip()
+            if part:
+                try:
+                    sizes.append(int(part))
+                except ValueError:
+                    return api_response(400, "Invalid size.")
 
-    payload = services.get_product_detail(slug, base_url=get_base_url(request), size=size)
+    payload = services.get_product_detail(slug, base_url=get_base_url(request), sizes=sizes if sizes else None)
     if payload is None:
         return api_response(404, "Product not found.")
     return api_response(200, "Product fetched successfully", data=payload)

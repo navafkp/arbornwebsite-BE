@@ -4,18 +4,24 @@ from utils.common_utils import SIZE_LABELS
 from .models import Category, Product, Review, Size, Tag, VariantImage, Wishlist
 
 
-def _size_match_q(size, prefix=""):
-    """A variant matches `size` if it stocks that size directly, or it has the Free Size stock
-    (code=7) and its min/max supported range covers the requested size."""
-    return Q(**{
-        f"{prefix}size_stocks__is_active": True,
-        f"{prefix}size_stocks__size__code": size,
-    }) | Q(**{
-        f"{prefix}size_stocks__is_active": True,
-        f"{prefix}size_stocks__size__code": 7,
-        f"{prefix}min_supported_size__lte": size,
-        f"{prefix}max_supported_size__gte": size,
-    })
+def _sizes_match_q(sizes, prefix=""):
+    """A variant matches `sizes` if it stocks any of those sizes directly, or it has the Free Size stock
+    (code=7) and its min/max supported range covers at least one of the requested sizes."""
+    if not sizes:
+        return Q()
+    
+    q_all = Q()
+    for size in sizes:
+        q_all |= Q(**{
+            f"{prefix}size_stocks__is_active": True,
+            f"{prefix}size_stocks__size__code": size,
+        }) | Q(**{
+            f"{prefix}size_stocks__is_active": True,
+            f"{prefix}size_stocks__size__code": 7,
+            f"{prefix}min_supported_size__lte": size,
+            f"{prefix}max_supported_size__gte": size,
+        })
+    return q_all
 
 
 def get_size_list():
@@ -113,11 +119,11 @@ def _base_product_queryset():
     ).distinct()
 
 
-def list_products(size=None, category_slug=None, tag_slug=None, base_url=None):
+def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None):
     qs = _base_product_queryset()
 
-    if size is not None:
-        qs = qs.filter(Q(variants__is_active=True) & _size_match_q(size, prefix="variants__"))
+    if sizes:
+        qs = qs.filter(Q(variants__is_active=True) & _sizes_match_q(sizes, prefix="variants__"))
 
     if category_slug:
         qs = qs.filter(product_family__category__slug=category_slug)
@@ -129,14 +135,17 @@ def list_products(size=None, category_slug=None, tag_slug=None, base_url=None):
     return [_product_list_item_payload(base_url, p) for p in qs]
 
 
-def _variant_sizes_payload(variant, size=None):
+def _variant_sizes_payload(variant, sizes=None):
     """Per-size stock, sourced from VariantSizeStock — one row per size the variant actually stocks
     (a free-size variant just has a single row against the "Free Size" Size entry)."""
     stocks = variant.size_stocks.filter(is_active=True, size__is_active=True).select_related("size")
-    if size is not None:
-        size_filter = Q(size__code=size)
-        if variant.min_supported_size <= size <= variant.max_supported_size:
-            size_filter |= Q(size__code=7)
+    if sizes:
+        size_filter = Q()
+        for size in sizes:
+            q = Q(size__code=size)
+            if variant.min_supported_size <= size <= variant.max_supported_size:
+                q |= Q(size__code=7)
+            size_filter |= q
         stocks = stocks.filter(size_filter)
     return [
         {
@@ -158,16 +167,16 @@ def _variant_image_payload(base_url, image):
     }
 
 
-def _variant_payload(base_url, variant, size=None):
-    sizes = _variant_sizes_payload(variant, size=size)
+def _variant_payload(base_url, variant, sizes=None):
+    sizes_payload = _variant_sizes_payload(variant, sizes=sizes)
     return {
         "id": variant.id,
         "color": variant.color,
         "color_code": variant.color_code,
         "price": variant.price,
         "discount_price": variant.discount_price,
-        "stock_quantity": sum(s["stock_quantity"] for s in sizes),
-        "sizes": sizes,
+        "stock_quantity": sum(s["stock_quantity"] for s in sizes_payload),
+        "sizes": sizes_payload,
         "images": [_variant_image_payload(base_url, image) for image in variant.images.all()],
     }
 
@@ -209,7 +218,7 @@ def create_review(user_profile, slug, rating, review_text, title=""):
     return _review_payload(review)
 
 
-def get_product_detail(slug, base_url=None, size=None):
+def get_product_detail(slug, base_url=None, sizes=None):
     try:
         product = (
             _base_product_queryset()
@@ -222,20 +231,20 @@ def get_product_detail(slug, base_url=None, size=None):
     related_products = _base_product_queryset().filter(
         product_family=product.product_family
     ).exclude(id=product.id)
-    if size is not None:
-        related_products = related_products.filter(_size_match_q(size, prefix="variants__")).distinct()
+    if sizes:
+        related_products = related_products.filter(_sizes_match_q(sizes, prefix="variants__")).distinct()
 
     reviews = product.reviews.filter(is_active=True).select_related("user_profile")
 
     variants = product.variants.filter(is_active=True, size_stocks__is_active=True).distinct()
-    if size is not None:
-        variants = variants.filter(_size_match_q(size)).distinct()
+    if sizes:
+        variants = variants.filter(_sizes_match_q(sizes)).distinct()
 
     recommended_products = product.recommended_products.filter(
         is_active=True, variants__is_active=True, variants__size_stocks__is_active=True
     )
-    if size is not None:
-        recommended_products = recommended_products.filter(_size_match_q(size, prefix="variants__"))
+    if sizes:
+        recommended_products = recommended_products.filter(_sizes_match_q(sizes, prefix="variants__"))
     recommended_products = _annotate_prices(recommended_products.distinct())
 
     return {
@@ -252,7 +261,7 @@ def get_product_detail(slug, base_url=None, size=None):
             "slug": product.product_family.category.slug,
         },
         "tags": [tag.slug for tag in product.tags.all()],
-        "variants": [_variant_payload(base_url, v, size=size) for v in variants],
+        "variants": [_variant_payload(base_url, v, sizes=sizes) for v in variants],
         "recommended_products": [_product_list_item_payload(base_url, p) for p in recommended_products],
         "related_products": [_product_list_item_payload(base_url, p) for p in related_products],
         "review_summary": _review_summary_payload(product),
