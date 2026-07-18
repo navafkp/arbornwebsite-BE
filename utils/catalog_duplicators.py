@@ -21,25 +21,31 @@ class CatalogDuplicator:
 
         for variant in variants:
             images = list(variant.images.all())
+            size_stocks = list(variant.size_stocks.all())
             variant.pk = None
             variant.id = None
             variant.product = product
-            variant.sku = ""
             variant.save()
             for image in images:
                 image.pk = None
                 image.id = None
                 image.variant = variant
                 image.save()
+            for stock in size_stocks:
+                stock.pk = None
+                stock.id = None
+                stock.variant = variant
+                stock.sku = ""
+                stock.save()
 
         return product
 
     def duplicate_variant(self, variant):
         images = list(variant.images.all())
+        size_stocks = list(variant.size_stocks.all())
         variant.pk = None
         variant.id = None
         variant.color = f"{variant.color}-copy-{get_random_string(6).lower()}"
-        variant.sku = ""
         variant.save()
 
         for image in images:
@@ -47,6 +53,13 @@ class CatalogDuplicator:
             image.id = None
             image.variant = variant
             image.save()
+
+        for stock in size_stocks:
+            stock.pk = None
+            stock.id = None
+            stock.variant = variant
+            stock.sku = ""
+            stock.save()
 
         return variant
 

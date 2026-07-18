@@ -48,7 +48,14 @@ def product_list(request):
 
 @api_endpoint(allowed_methods=["GET"], auth="none")
 def product_detail(request, slug):
-    payload = services.get_product_detail(slug, base_url=get_base_url(request))
+    size = request.GET.get("size")
+    if size is not None:
+        try:
+            size = int(size)
+        except ValueError:
+            return api_response(400, "Invalid size.")
+
+    payload = services.get_product_detail(slug, base_url=get_base_url(request), size=size)
     if payload is None:
         return api_response(404, "Product not found.")
     return api_response(200, "Product fetched successfully", data=payload)

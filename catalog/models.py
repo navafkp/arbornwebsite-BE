@@ -117,17 +117,11 @@ class ProductVariant(TimeStampedModel, ActivatableModel):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     stock_quantity = models.PositiveIntegerField(default=0)
-    sku = models.CharField(max_length=100, unique=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     display_order = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
-        return self.color or self.id
-
-    def save(self, *args, **kwargs):
-        if not self.sku:
-            self.sku = generate_sku()
-        super().save(*args, **kwargs)
+        return f"{self.product.name} - {self.color or self.id}"
 
     class Meta:
         verbose_name_plural = "product variants"
@@ -137,6 +131,24 @@ class ProductVariant(TimeStampedModel, ActivatableModel):
                 name="unique_product_variant"
             )
         ]
+
+# free size will add as size, if prodict variant get size form varnaint size, then check  min_supported_size and max_supported_size to derive teh free size
+class VariantSizeStock(TimeStampedModel, ActivatableModel):
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name="size_stocks")
+    size = models.ForeignKey("Size", on_delete=models.PROTECT, related_name="variant_stocks")
+    stock_quantity = models.PositiveIntegerField(default=0)
+    sku = models.CharField(max_length=100, unique=True, blank=True)
+
+    def __str__(self):
+        return f"{self.variant} - {self.size}"
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            self.sku = generate_sku()
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name_plural = "variant size stocks"
 
 
 class VariantImage(TimeStampedModel):
@@ -159,6 +171,7 @@ class Size(TimeStampedModel, ActivatableModel):
     display_order = models.PositiveSmallIntegerField()
     measurement = models.CharField(max_length=50,blank=True)
     metadata = models.JSONField(default=dict,blank=True)
+    # show on explorer false for free size - add it in meta data
 
     def __str__(self):
         return str(self.code)

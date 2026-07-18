@@ -5,7 +5,7 @@ from utils.common_utils import SIZE_LABELS
 from utils.catalog_duplicators import catalog_duplicator
 from .models import (
     Category, Product, ProductFamily, ProductTag,
-    ProductVariant, Review, Tag, VariantImage,Size, Wishlist
+    ProductVariant, Review, Tag, VariantImage,Size, Wishlist,VariantSizeStock
 )
 
 
@@ -23,26 +23,35 @@ class ProductTagInline(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "slug", "display_order"]
+    list_display = ["name", "slug", "display_order", "created_at", "updated_at"]
     prepopulated_fields = {"slug": ("name",)}
-    fields = ["name", "slug", "image", "description", "display_order", "is_active", "metadata"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = [
+        "name", "slug", "image", "description", "display_order", "is_active", "metadata",
+        "created_at", "updated_at",
+    ]
 
 
 @admin.register(ProductFamily)
 class ProductFamilyAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "is_active"]
+    list_display = ["name", "category", "is_active", "created_at", "updated_at"]
     list_filter = ["category", "is_active"]
     prepopulated_fields = {"slug": ("name",)}
-    fields = ["category", "name", "slug", "is_active", "metadata"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = ["category", "name", "slug", "is_active", "metadata", "created_at", "updated_at"]
 
 
 @admin.register(Tag)
 class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "slug", "display_order", "is_active"]
+    list_display = ["name", "slug", "display_order", "is_active", "created_at", "updated_at"]
     search_fields = ["name", "slug"]
     prepopulated_fields = {"slug": ("name",)}
     duplicate_success_message = "Tag duplicated."
-    fields = ["name", "slug", "image", "description", "display_order", "is_active", "metadata"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = [
+        "name", "slug", "image", "description", "display_order", "is_active", "metadata",
+        "created_at", "updated_at",
+    ]
 
     def duplicate_object(self, tag):
         return catalog_duplicator.duplicate_tag(tag)
@@ -50,16 +59,17 @@ class TagAdmin(DuplicateAdminMixin, admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
-    list_display = ["name", "product_family", "base_price", "is_active", "created_at"]
+    list_display = ["name", "product_family", "is_active", "created_at", "updated_at"]
     list_filter = ["product_family__category", "is_active"]
     search_fields = ["name", "slug", "short_description"]
     prepopulated_fields = {"slug": ("name",)}
     autocomplete_fields = ["recommended_products"]
     inlines = [ProductTagInline]
     duplicate_success_message = "Product duplicated."
+    readonly_fields = ["created_at", "updated_at"]
     fields = [
         "product_family", "name", "slug", "short_description", "description",
-        "base_price", "base_discount_price", "recommended_products", "is_active", "metadata",
+        "recommended_products", "is_active", "metadata", "created_at", "updated_at",
     ]
 
     def duplicate_object(self, product):
@@ -68,10 +78,11 @@ class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
 
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):
-    list_display = ["size_label", "display_order", "is_active"]
+    list_display = ["size_label", "display_order", "is_active", "created_at", "updated_at"]
     list_filter = ["is_active"]
     search_fields = ["code"]
-    fields = ["code", "display_order", "measurement", "is_active", "metadata"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = ["code", "display_order", "measurement", "is_active", "metadata", "created_at", "updated_at"]
 
     @admin.display(description="Size")
     def size_label(self, obj):
@@ -85,19 +96,28 @@ class SizeAdmin(admin.ModelAdmin):
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(DuplicateAdminMixin, admin.ModelAdmin):
-    list_display = ["product", "color", "min_supported_size", "max_supported_size", "price", "stock_quantity", "is_active"]
+    list_display = [
+        "product", "color", "min_supported_size", "max_supported_size", "price", "is_active",
+        "created_at", "updated_at",
+    ]
     list_filter = ["is_active"]
-    search_fields = ["product__name", "sku"]
+    search_fields = ["product__name", "size_stocks__sku"]
     inlines = [VariantImageInline]
     duplicate_success_message = "Product variant duplicated."
+    readonly_fields = ["created_at", "updated_at"]
     fields = [
         "product", "color", "color_code", "min_supported_size", "max_supported_size",
-        "price", "discount_price", "stock_quantity", "sku", "display_order", "is_active", "metadata",
+        "price", "discount_price", "display_order", "is_active", "metadata",
+        "created_at", "updated_at",
     ]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name in ("min_supported_size", "max_supported_size"):
-            kwargs["widget"] = forms.Select(choices=list(SIZE_LABELS.items()))
+            codes = [
+                size.code for size in Size.objects.filter(is_active=True)
+                if size.metadata.get("is_show_in_size_range", True)
+            ]
+            kwargs["widget"] = forms.Select(choices=[(code, SIZE_LABELS.get(code, str(code))) for code in codes])
         elif db_field.name == "color_code":
             kwargs["widget"] = forms.TextInput(attrs={"type": "color"})
         return super().formfield_for_dbfield(db_field, request, **kwargs)
@@ -106,19 +126,29 @@ class ProductVariantAdmin(DuplicateAdminMixin, admin.ModelAdmin):
         return catalog_duplicator.duplicate_variant(variant)
 
 
+@admin.register(VariantSizeStock)
+class VariantSizeStockAdmin(admin.ModelAdmin):
+    list_display = ["variant", "size", "stock_quantity", "sku", "is_active", "created_at", "updated_at"]
+    list_filter = ["variant__product__name", "size", "is_active"]
+    search_fields = ["variant__product__name", "sku"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = ["variant", "size", "stock_quantity", "sku", "is_active", "created_at", "updated_at"]
+
+
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ["product", "user_profile", "rating", "title", "is_active", "created_at"]
+    list_display = ["product", "user_profile", "rating", "title", "is_active", "created_at", "updated_at"]
     list_filter = ["rating", "is_active"]
     search_fields = ["product__name", "title", "review"]
-    fields = ["product", "user_profile", "rating", "title", "review", "is_active"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = ["product", "user_profile", "rating", "title", "review", "is_active", "created_at", "updated_at"]
 
 
 @admin.register(Wishlist)
 class WishlistAdmin(admin.ModelAdmin):
     """Read-only: wishlist entries are user actions, not something admins hand-author."""
 
-    list_display = ["user_profile", "product", "created_at"]
+    list_display = ["user_profile", "product", "created_at", "updated_at"]
     search_fields = ["user_profile__user__email", "product__name"]
 
     def has_add_permission(self, request):

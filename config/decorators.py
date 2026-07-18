@@ -57,7 +57,7 @@ def get_client_ip(request):
         return real_ip.strip()
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
-        return forwarded_for.split(",")[-1].strip()
+        return forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR", "")
 
 
