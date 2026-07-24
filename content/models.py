@@ -1,48 +1,32 @@
 from django.db import models
+from django_resized import ResizedImageField
+from utils.models import ActivatableModel, TimeStampedModel
 
 
-# class SingletonModel(models.Model):
-#     """
-#     Base for content that only ever has one row (Home hero, Select Size
-#     copy) — editable from Django Admin without a redeploy.
-#     """
+class StoryGroup(ActivatableModel, TimeStampedModel):
+    label = models.CharField(max_length=100,blank=True)
+    cover_image = ResizedImageField(upload_to="stories/covers/", force_format="WEBP", quality=90, blank=True, null=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
 
-#     class Meta:
-#         abstract = True
-
-#     def save(self, *args, **kwargs):
-#         self.pk = 1
-#         super().save(*args, **kwargs)
-
-#     def delete(self, *args, **kwargs):
-#         pass  # singleton rows are never deleted, only edited
-
-#     @classmethod
-#     def load(cls):
-#         obj, _ = cls.objects.get_or_create(pk=1)
-#         return obj
+    def __str__(self):
+        return self.label
+    
+    class Meta:
+        verbose_name_plural = "story groups"
 
 
+class Story(ActivatableModel, TimeStampedModel):
+    group = models.ForeignKey(StoryGroup, on_delete=models.CASCADE, related_name="stories")
+    image = ResizedImageField(upload_to="stories/", force_format="WEBP", quality=90, blank=True, null=True)
+    eyebrow = models.CharField(max_length=100, blank=True)
+    caption = models.CharField(max_length=255, blank=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    duration_ms = models.PositiveIntegerField(default=3000)
+    cta_label = models.CharField(max_length=100, blank=True)
+    cta_link = models.CharField(max_length=500, blank=True)
 
+    def __str__(self):
+        return f"{self.group.label} story #{self.display_order}"
 
-
-# class SelectSizeContent(SingletonModel):
-#     heading = models.CharField(max_length=200, default="What's your bust size?")
-#     subheading = models.CharField(
-#         max_length=255, default="Choose your bust size for the best fit"
-#     )
-#     illustration_image = models.ImageField(upload_to="content/", blank=True, null=True)
-#     size_tip_text = models.CharField(
-#         max_length=255, default="If your lower body is heavier, choose one size bigger."
-#     )
-#     whatsapp_help_text = models.CharField(
-#         max_length=255,
-#         default="Not sure about your size or buying for someone else?",
-#     )
-#     important_note = models.TextField(
-#         default="This is a loose-fit model. Sizes are for bust/bra size reference "
-#         "only, not exact dress measurements."
-#     )
-
-#     def __str__(self):
-#         return "Select Size page content"
+    class Meta:
+        verbose_name_plural = "stories"

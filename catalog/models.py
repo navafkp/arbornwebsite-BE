@@ -207,3 +207,17 @@ class Wishlist(TimeStampedModel):
 
     class Meta:
         verbose_name_plural = "wishlist items"
+
+class Order(TimeStampedModel, ActivatableModel):
+    customer_name = models.CharField(max_length=150, blank=True)
+    phone = models.CharField(max_length=20,blank=True)
+    state = models.CharField(max_length=20,blank=True)
+    variant_size_stock = models.ForeignKey(VariantSizeStock, on_delete=models.PROTECT, related_name="orders")
+    quantity = models.PositiveSmallIntegerField(default=1)
+    collected_amount = models.DecimalField(max_digits=10,decimal_places=2)
+    shipping_charge = models.DecimalField(max_digits=10,decimal_places=2)
+    transport_mode = models.CharField(max_length=30)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name_plural = "Temporary orders"

@@ -1,21 +1,8 @@
-from rest_framework import permissions
-from rest_framework.generics import RetrieveAPIView
+from config.decorators import api_endpoint, api_response, get_base_url
 
-# from .models import HomeContent, SelectSizeContent
-# from .serializers import HomeContentSerializer, SelectSizeContentSerializer
+from . import services
 
 
-# class HomeContentView(RetrieveAPIView):
-#     serializer_class = HomeContentSerializer
-#     permission_classes = [permissions.AllowAny]
-
-#     def get_object(self):
-#         return HomeContent.load()
-
-
-# class SelectSizeContentView(RetrieveAPIView):
-#     serializer_class = SelectSizeContentSerializer
-#     permission_classes = [permissions.AllowAny]
-
-#     def get_object(self):
-#         return SelectSizeContent.load()
+@api_endpoint(allowed_methods=["GET"], auth="none")
+def story_list(request):
+    return api_response(200, "Stories fetched successfully", data=services.get_story_groups(get_base_url(request)))

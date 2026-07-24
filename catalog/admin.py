@@ -1,11 +1,13 @@
 from django import forms
 from django.contrib import admin
 from utils.admin_common import DuplicateAdminMixin
-from utils.common_utils import SIZE_LABELS
+from utils.common_utils import SIZE_LABELS,TRANSPORT_MODE_CHOICES
 from utils.catalog_duplicators import catalog_duplicator
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from .models import (
     Category, Product, ProductFamily, ProductTag,
-    ProductVariant, Review, Tag, VariantImage,Size, Wishlist,VariantSizeStock
+    ProductVariant, Review, Tag, VariantImage,Size, Wishlist,VariantSizeStock,Order
 )
 
 
@@ -157,6 +159,139 @@ class WishlistAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+
+class OrderAdminForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        variant_stock = cleaned_data.get("variant_size_stock")
+        quantity = cleaned_data.get("quantity")
+
+        if not variant_stock or quantity is None:
+            return cleaned_data
+
+        if quantity <= 0:
+            self.add_error(
+                "quantity",
+                "Quantity must be greater than 0."
+            )
+            return cleaned_data
+
+        if self.instance.pk:
+            old_order = Order.objects.get(pk=self.instance.pk)
+
+            if old_order.variant_size_stock != variant_stock:
+                required_quantity = quantity
+            else:
+                required_quantity = quantity - old_order.quantity
+
+                if required_quantity <= 0:
+                    return cleaned_data
+
+            if variant_stock.stock_quantity < required_quantity:
+                self.add_error(
+                    "quantity",
+                    f"Only {variant_stock.stock_quantity} items available."
+                )
+
+        else:
+            if variant_stock.stock_quantity < quantity:
+                self.add_error(
+                    "quantity",
+                    f"Only {variant_stock.stock_quantity} items available."
+                )
+
+        return cleaned_data
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    form = OrderAdminForm
+    list_display = ["customer_name", "phone", "state", "quantity", "collected_amount", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
+    list_filter = ["state", "transport_mode"]
+    search_fields = ["customer_name", "phone"]
+    readonly_fields = ["created_at", "updated_at"]
+    fields = ["customer_name", "phone", "state", "quantity", "collected_amount", "variant_size_stock", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "transport_mode":
+            kwargs["widget"] = forms.Select(choices=TRANSPORT_MODE_CHOICES)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def delete_queryset(self, request, queryset):
+        with transaction.atomic():
+
+            for order in queryset:
+                stock = order.variant_size_stock
+
+                stock.stock_quantity += order.quantity
+                stock.save(update_fields=["stock_quantity"])
+
+            queryset.delete()
+    def delete_model(self, request, obj):
+        with transaction.atomic():
+            stock = obj.variant_size_stock
+            stock.stock_quantity += obj.quantity
+            stock.save(update_fields=["stock_quantity"])
+
+            super().delete_model(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        with transaction.atomic():
+
+            if change:
+                old_order = Order.objects.get(pk=obj.pk)
+
+                old_stock = old_order.variant_size_stock
+                new_stock = obj.variant_size_stock
+
+                if old_stock == new_stock:
+
+                    difference = obj.quantity - old_order.quantity
+
+                    if difference > 0:
+                        if old_stock.stock_quantity < difference:
+                            raise ValidationError(
+                                f"Only {old_stock.stock_quantity} items available."
+                            )
+
+                        old_stock.stock_quantity -= difference
+
+                    elif difference < 0:
+                        old_stock.stock_quantity += abs(difference)
+
+                    old_stock.save(update_fields=["stock_quantity"])
+
+                else:
+                    # Return old stock
+                    old_stock.stock_quantity += old_order.quantity
+                    old_stock.save(update_fields=["stock_quantity"])
+
+                    # Check new stock before deducting
+                    if new_stock.stock_quantity < obj.quantity:
+                        raise ValidationError(
+                            f"Only {new_stock.stock_quantity} items available."
+                        )
+
+                    new_stock.stock_quantity -= obj.quantity
+                    new_stock.save(update_fields=["stock_quantity"])
+
+            else:
+                # Create order
+                if obj.variant_size_stock.stock_quantity < obj.quantity:
+                    raise ValidationError(
+                        f"Only {obj.variant_size_stock.stock_quantity} items available."
+                    )
+
+                obj.variant_size_stock.stock_quantity -= obj.quantity
+                obj.variant_size_stock.save(
+                    update_fields=["stock_quantity"]
+                )
+
+            super().save_model(request, obj, form, change)
 
 # Custom admin ordering
 CATALOG_MODEL_ORDER = ["Category", "ProductFamily", "Product", "ProductVariant", "Review", "Tag", "Size"]
