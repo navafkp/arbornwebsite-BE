@@ -57,11 +57,17 @@ def _category_like_payload(base_url, obj):
 
 
 def get_category_list(base_url=None):
-    return [_category_like_payload(base_url, c) for c in Category.objects.filter(is_active=True)]
+    return [
+        _category_like_payload(base_url, c) for c in Category.objects.filter(is_active=True)
+        if c.metadata.get("is_show_on_explorer", True)
+    ]
 
 
 def get_tag_list(base_url=None):
-    return [_category_like_payload(base_url, t) for t in Tag.objects.filter(is_active=True)]
+    return [
+        _category_like_payload(base_url, t) for t in Tag.objects.filter(is_active=True)
+        if t.metadata.get("is_show_on_explorer", True)
+    ]
 
 
 def get_explore_payload(base_url=None):
