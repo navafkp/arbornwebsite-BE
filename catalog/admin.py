@@ -6,7 +6,7 @@ from utils.catalog_duplicators import catalog_duplicator
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from .models import (
-    Category, Product, ProductFamily, ProductTag,
+    Cart, Category, Product, ProductFamily, ProductTag,
     ProductVariant, Review, Tag, VariantImage,Size, Wishlist,VariantSizeStock,Order
 )
 
@@ -152,6 +152,20 @@ class WishlistAdmin(admin.ModelAdmin):
 
     list_display = ["user_profile", "product", "created_at", "updated_at"]
     search_fields = ["user_profile__user__email", "product__name"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Cart)
+class CartAdmin(admin.ModelAdmin):
+    """Read-only: cart entries are user actions, not something admins hand-author."""
+
+    list_display = ["user_profile", "variant_size_stock", "quantity", "created_at", "updated_at"]
+    search_fields = ["user_profile__user__email", "variant_size_stock__variant__product__name"]
 
     def has_add_permission(self, request):
         return False

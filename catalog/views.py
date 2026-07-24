@@ -120,6 +120,67 @@ def wishlist_remove(request, product_id):
     return api_response(200, "Removed from wishlist.")
 
 
+@api_endpoint(allowed_methods=["GET", "POST", "DELETE"], auth="user_authentication")
+def cart(request):
+    if request.method == "DELETE":
+        data = parse_json_body(request)
+        item_ids = data.get("item_ids")
+        if not isinstance(item_ids, list) or not item_ids:
+            return api_response(400, "item_ids must be a non-empty list.")
+
+        deleted_count = services.remove_cart_items(request.user.profile, item_ids)
+        return api_response(200, f"Removed {deleted_count} item(s) from cart.")
+
+    if request.method == "POST":
+        data = parse_json_body(request)
+        variant_size_stock_id = data.get("variant_size_stock_id")
+        if not variant_size_stock_id:
+            return api_response(400, "variant_size_stock_id is required.")
+
+        try:
+            quantity = int(data.get("quantity", 1))
+        except (TypeError, ValueError):
+            return api_response(400, "quantity must be an integer.")
+        if quantity < 1:
+            return api_response(400, "quantity must be at least 1.")
+
+        payload = services.add_to_cart(
+            request.user.profile, variant_size_stock_id, quantity, base_url=get_base_url(request)
+        )
+        if payload is None:
+            return api_response(404, "Product variant not found.")
+        if "error" in payload:
+            return api_response(400, payload["error"])
+        return api_response(200, "Added to cart.", data=payload)
+
+    payload = services.get_cart(request.user.profile, get_base_url(request))
+    return api_response(200, "Cart fetched successfully", data=payload)
+
+
+@api_endpoint(allowed_methods=["PATCH", "DELETE"], auth="user_authentication")
+def cart_item(request, item_id):
+    if request.method == "DELETE":
+        removed = services.remove_from_cart(request.user.profile, item_id)
+        if not removed:
+            return api_response(404, "Item not found in cart.")
+        return api_response(200, "Removed from cart.")
+
+    data = parse_json_body(request)
+    try:
+        quantity = int(data.get("quantity"))
+    except (TypeError, ValueError):
+        return api_response(400, "quantity must be an integer.")
+    if quantity < 1:
+        return api_response(400, "quantity must be at least 1.")
+
+    payload = services.update_cart_item(request.user.profile, item_id, quantity, base_url=get_base_url(request))
+    if payload is None:
+        return api_response(404, "Item not found in cart.")
+    if "error" in payload:
+        return api_response(400, payload["error"])
+    return api_response(200, "Cart updated.", data=payload)
+
+
 @api_endpoint(allowed_methods=["POST"], auth="user_authentication")
 def product_review_create(request, slug):
     data = parse_json_body(request)

@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    cart,
+    cart_item,
     category_list,
     explore,
     product_detail,
@@ -22,4 +24,6 @@ urlpatterns = [
     path("v1/products/<str:slug>/reviews/", product_review_create, name="product-review-create"),
     path("v1/wishlist/", wishlist, name="wishlist"),
     path("v1/wishlist/<int:product_id>/", wishlist_remove, name="wishlist-remove"),
+    path("v1/cart/", cart, name="cart"),
+    path("v1/cart/<int:item_id>/", cart_item, name="cart-item"),
 ]

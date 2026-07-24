@@ -1,7 +1,7 @@
 from django.db.models import Avg, Count, Min, Q
 
 from utils.common_utils import SIZE_LABELS
-from .models import Category, Product, Review, Size, Tag, VariantImage, Wishlist
+from .models import Cart, Category, Product, Review, Size, Tag, VariantImage, VariantSizeStock, Wishlist
 
 
 def _sizes_match_q(sizes, prefix=""):
@@ -171,6 +171,7 @@ def _variant_sizes_payload(variant, sizes=None):
         stocks = stocks.filter(size_filter)
     return [
         {
+            "variant_size_stock_id": stock.id,
             "size_code": stock.size.code,
             "display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
             "measurement": stock.size.measurement,
@@ -344,3 +345,100 @@ def get_wishlist(user_profile, base_url=None):
         item.product.computed_base_discount_price = item.computed_base_discount_price
         payloads.append(_wishlist_item_payload(base_url, item.product))
     return payloads
+
+
+def _variant_primary_image_url(base_url, variant):
+    image = variant.images.order_by("-is_primary", "display_order").first()
+    return _image_url(base_url, image.image) if image else None
+
+
+def _cart_item_payload(base_url, cart_item):
+    stock = cart_item.variant_size_stock
+    variant = stock.variant
+    product = variant.product
+    price = variant.discount_price or variant.price
+    return {
+        "id": cart_item.id,
+        "product": {"id": product.id, "name": product.name, "slug": product.slug},
+        "variant_id": variant.id,
+        "color": variant.color,
+        "color_code": variant.color_code,
+        "size_code": stock.size.code,
+        "size_display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
+        "image_url": _variant_primary_image_url(base_url, variant),
+        "price": price,
+        "quantity": cart_item.quantity,
+        "subtotal": price * cart_item.quantity,
+        "stock_quantity": stock.stock_quantity,
+        "is_out_of_stock": stock.stock_quantity <= 0,
+        "is_stock_insufficient": cart_item.quantity > stock.stock_quantity,
+    }
+
+
+def get_cart(user_profile, base_url=None):
+    items = Cart.objects.filter(user_profile=user_profile).select_related(
+        "variant_size_stock__size", "variant_size_stock__variant__product"
+    ).prefetch_related("variant_size_stock__variant__images")
+    payloads = [_cart_item_payload(base_url, item) for item in items]
+    return {
+        "items": payloads,
+        "total_quantity": sum(p["quantity"] for p in payloads),
+        "total_amount": sum(p["subtotal"] for p in payloads),
+    }
+
+
+def add_to_cart(user_profile, variant_size_stock_id, quantity=1, base_url=None):
+    """Returns None if variant_size_stock_id doesn't match a real, active stock row.
+    Returns {"error": ...} if the requested quantity exceeds available stock."""
+    try:
+        stock = VariantSizeStock.objects.select_related("variant__product", "size").get(
+            id=variant_size_stock_id, is_active=True, variant__is_active=True
+        )
+    except VariantSizeStock.DoesNotExist:
+        return None
+
+    existing_item = Cart.objects.filter(user_profile=user_profile, variant_size_stock=stock).first()
+    new_quantity = (existing_item.quantity if existing_item else 0) + quantity
+
+    if new_quantity > stock.stock_quantity:
+        return {"error": f"Only {stock.stock_quantity} items available."}
+
+    if existing_item is None:
+        cart_item = Cart.objects.create(
+            user_profile=user_profile, variant_size_stock=stock, quantity=new_quantity
+        )
+    else:
+        existing_item.quantity = new_quantity
+        existing_item.save(update_fields=["quantity"])
+        cart_item = existing_item
+    return _cart_item_payload(base_url, cart_item)
+
+
+def update_cart_item(user_profile, cart_item_id, quantity, base_url=None):
+    """Returns None if that cart item doesn't belong to this user.
+    Returns {"error": ...} if the requested quantity exceeds available stock."""
+    try:
+        cart_item = Cart.objects.select_related(
+            "variant_size_stock__variant__product", "variant_size_stock__size"
+        ).get(id=cart_item_id, user_profile=user_profile)
+    except Cart.DoesNotExist:
+        return None
+
+    if quantity > cart_item.variant_size_stock.stock_quantity:
+        return {"error": f"Only {cart_item.variant_size_stock.stock_quantity} items available."}
+
+    cart_item.quantity = quantity
+    cart_item.save(update_fields=["quantity"])
+    return _cart_item_payload(base_url, cart_item)
+
+
+def remove_from_cart(user_profile, cart_item_id):
+    """Returns False if that item wasn't in the user's cart."""
+    deleted, _ = Cart.objects.filter(id=cart_item_id, user_profile=user_profile).delete()
+    return deleted > 0
+
+
+def remove_cart_items(user_profile, item_ids):
+    """Returns how many of the given ids were actually in this user's cart."""
+    deleted, _ = Cart.objects.filter(id__in=item_ids, user_profile=user_profile).delete()
+    return deleted

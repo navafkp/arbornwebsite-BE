@@ -208,6 +208,22 @@ class Wishlist(TimeStampedModel):
     class Meta:
         verbose_name_plural = "wishlist items"
 
+class Cart(TimeStampedModel):
+    user_profile = models.ForeignKey(
+        "accounts.UserProfile", on_delete=models.CASCADE, related_name="cart_items"
+    )
+    variant_size_stock = models.ForeignKey(
+        VariantSizeStock, on_delete=models.CASCADE, related_name="cart_items"
+    )
+    quantity = models.PositiveSmallIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.user_profile} - {self.variant_size_stock} x{self.quantity}"
+
+    class Meta:
+        verbose_name_plural = "cart items"
+
+
 class Order(TimeStampedModel, ActivatableModel):
     customer_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20,blank=True)
