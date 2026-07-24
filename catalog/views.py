@@ -51,9 +51,27 @@ def product_list(request):
         except ValueError:
             return api_response(400, "Invalid limit.")
 
+    page = request.GET.get("page")
+    if page is not None:
+        try:
+            page = int(page)
+        except ValueError:
+            return api_response(400, "Invalid page.")
+        if page < 1:
+            return api_response(400, "Invalid page.")
+
+    page_size = request.GET.get("page_size")
+    if page_size is not None:
+        try:
+            page_size = int(page_size)
+        except ValueError:
+            return api_response(400, "Invalid page_size.")
+        if page_size < 1:
+            return api_response(400, "Invalid page_size.")
+
     payload = services.list_products(
         sizes=sizes if sizes else None, category_slug=category_slug, tag_slug=tag_slug,
-        base_url=get_base_url(request), limit=limit,
+        base_url=get_base_url(request), limit=limit, page=page, page_size=page_size,
     )
     return api_response(200, "Products fetched successfully", data=payload)
 
