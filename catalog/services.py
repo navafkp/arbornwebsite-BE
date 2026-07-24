@@ -119,7 +119,7 @@ def _base_product_queryset():
     ).distinct()
 
 
-def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None):
+def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None, limit=None):
     qs = _base_product_queryset()
 
     if sizes:
@@ -131,7 +131,9 @@ def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None):
     if tag_slug:
         qs = qs.filter(tags__slug=tag_slug)
 
-    qs = qs.distinct()
+    qs = qs.distinct().order_by("id")
+    if limit is not None:
+        qs = qs[:limit]
     return [_product_list_item_payload(base_url, p) for p in qs]
 
 

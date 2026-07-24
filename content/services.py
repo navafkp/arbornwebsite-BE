@@ -1,4 +1,4 @@
-from .models import StoryGroup
+from .models import Banner, StoryGroup
 
 
 def _image_url(base_url, image_field):
@@ -34,3 +34,19 @@ def _story_group_payload(base_url, group):
 def get_story_groups(base_url=None):
     groups = StoryGroup.objects.filter(is_active=True).prefetch_related("stories")
     return [_story_group_payload(base_url, g) for g in groups]
+
+
+def _banner_payload(base_url, banner):
+    return {
+        "id": banner.id,
+        "image_url": _image_url(base_url, banner.image),
+        "alt_text": banner.alt_text,
+        "display_order": banner.display_order,
+        "duration_ms": banner.duration_ms,
+        "link": banner.link or None,
+    }
+
+
+def get_banners(base_url=None):
+    banners = Banner.objects.filter(is_active=True)
+    return [_banner_payload(base_url, b) for b in banners]

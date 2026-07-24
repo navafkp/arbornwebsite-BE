@@ -44,8 +44,16 @@ def product_list(request):
     category_slug = request.GET.get("category")
     tag_slug = request.GET.get("tag")
 
+    limit = request.GET.get("limit")
+    if limit is not None:
+        try:
+            limit = int(limit)
+        except ValueError:
+            return api_response(400, "Invalid limit.")
+
     payload = services.list_products(
-        sizes=sizes if sizes else None, category_slug=category_slug, tag_slug=tag_slug, base_url=get_base_url(request)
+        sizes=sizes if sizes else None, category_slug=category_slug, tag_slug=tag_slug,
+        base_url=get_base_url(request), limit=limit,
     )
     return api_response(200, "Products fetched successfully", data=payload)
 

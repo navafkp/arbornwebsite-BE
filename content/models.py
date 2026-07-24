@@ -30,3 +30,16 @@ class Story(ActivatableModel, TimeStampedModel):
 
     class Meta:
         verbose_name_plural = "stories"
+
+class Banner(ActivatableModel, TimeStampedModel):
+    image = ResizedImageField(upload_to="banners/", force_format="WEBP", quality=90,blank=True, null=True)
+    alt_text = models.CharField(max_length=255,blank=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    duration_ms = models.PositiveIntegerField(default=5000)
+    link = models.CharField(max_length=500, blank=True)
+
+    def __str__(self):
+        return self.alt_text
+
+    class Meta:
+        verbose_name_plural = "banners"
