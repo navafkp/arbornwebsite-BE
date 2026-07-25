@@ -225,6 +225,9 @@ class Cart(TimeStampedModel):
 
 
 class Order(TimeStampedModel, ActivatableModel):
+    user_profile = models.ForeignKey(
+        "accounts.UserProfile", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True
+    )
     customer_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20,blank=True)
     state = models.CharField(max_length=20,blank=True)

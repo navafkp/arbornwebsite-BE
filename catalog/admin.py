@@ -224,11 +224,12 @@ class OrderAdminForm(forms.ModelForm):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
-    list_display = ["customer_name", "phone", "state", "quantity", "collected_amount", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
+    list_display = ["customer_name", "phone", "user_profile", "state", "quantity", "collected_amount", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
     list_filter = ["state", "transport_mode"]
     search_fields = ["customer_name", "phone"]
+    autocomplete_fields = ["user_profile"]
     readonly_fields = ["created_at", "updated_at"]
-    fields = ["customer_name", "phone", "state", "quantity", "collected_amount", "variant_size_stock", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
+    fields = ["user_profile", "customer_name", "phone", "state", "quantity", "collected_amount", "variant_size_stock", "shipping_charge", "transport_mode", "notes", "created_at", "updated_at"]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == "transport_mode":

@@ -1,7 +1,7 @@
 from django.db.models import Avg, Count, Min, Q
 
 from utils.common_utils import SIZE_LABELS
-from .models import Cart, Category, Product, Review, Size, Tag, VariantImage, VariantSizeStock, Wishlist
+from .models import Cart, Category, Order, Product, Review, Size, Tag, VariantImage, VariantSizeStock, Wishlist
 
 
 def _sizes_match_q(sizes, prefix=""):
@@ -442,3 +442,32 @@ def remove_cart_items(user_profile, item_ids):
     """Returns how many of the given ids were actually in this user's cart."""
     deleted, _ = Cart.objects.filter(id__in=item_ids, user_profile=user_profile).delete()
     return deleted
+
+
+def _order_payload(base_url, order):
+    stock = order.variant_size_stock
+    variant = stock.variant
+    product = variant.product
+    return {
+        "id": order.id,
+        "product": {"id": product.id, "name": product.name, "slug": product.slug},
+        "variant_id": variant.id,
+        "color": variant.color,
+        "color_code": variant.color_code,
+        "size_code": stock.size.code,
+        "size_display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
+        "image_url": _variant_primary_image_url(base_url, variant),
+        "quantity": order.quantity,
+        "collected_amount": order.collected_amount,
+        "shipping_charge": order.shipping_charge,
+        "transport_mode": order.transport_mode,
+        "state": order.state,
+        "created_at": order.created_at,
+    }
+
+
+def get_orders(user_profile, base_url=None):
+    orders = Order.objects.filter(user_profile=user_profile).select_related(
+        "variant_size_stock__size", "variant_size_stock__variant__product"
+    ).prefetch_related("variant_size_stock__variant__images").order_by("-created_at")
+    return [_order_payload(base_url, order) for order in orders]

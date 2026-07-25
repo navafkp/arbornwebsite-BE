@@ -181,6 +181,12 @@ def cart_item(request, item_id):
     return api_response(200, "Cart updated.", data=payload)
 
 
+@api_endpoint(allowed_methods=["GET"], auth="user_authentication")
+def order_list(request):
+    payload = services.get_orders(request.user.profile, get_base_url(request))
+    return api_response(200, "Orders fetched successfully", data=payload)
+
+
 @api_endpoint(allowed_methods=["POST"], auth="user_authentication")
 def product_review_create(request, slug):
     data = parse_json_body(request)
