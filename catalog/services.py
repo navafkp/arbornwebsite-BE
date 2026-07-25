@@ -136,6 +136,7 @@ def _product_list_item_payload(base_url, product):
         "base_price": product.computed_base_price,
         "base_discount_price": product.computed_base_discount_price,
         "image_url": _primary_image_url(base_url, product),
+        "thumbnail_url": _image_url(base_url, product.thumbnail_image),
         "tag": _top_tag_payload(product),
         "colors": _variant_colors_payload(product),
         "sizes": _available_sizes_payload(product),
@@ -342,6 +343,7 @@ def get_product_detail(slug, base_url=None, sizes=None):
         "description": product.description,
         "base_price": product.computed_base_price,
         "base_discount_price": product.computed_base_discount_price,
+        "thumbnail_url": _image_url(base_url, product.thumbnail_image),
         "category": {
             "id": product.product_family.category_id,
             "name": product.product_family.category.name,

@@ -75,7 +75,7 @@ class Product(ActivatableModel, TimeStampedModel):
     slug = models.SlugField(unique=True)
     short_description = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
-    thumbnail = ResizedImageField(
+    thumbnail_image = ResizedImageField(
         upload_to="products/thumbnails/", force_format="WEBP", quality=90, blank=True, null=True
     )
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
