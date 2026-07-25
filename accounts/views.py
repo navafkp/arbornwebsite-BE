@@ -79,6 +79,13 @@ def profile(request):
     )
 
 
+@api_endpoint(allowed_methods=["GET"], auth="none")
+def search_suggestions(request):
+    return api_response(
+        200, "Search suggestions fetched successfully", data=services.get_header_search_suggestions()
+    )
+
+
 @api_endpoint(allowed_methods=["POST"], auth="none")
 def otp_request(request):
     if not services.otp_request_allowed_for_ip(get_client_ip(request)):

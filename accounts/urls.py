@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import google_auth, logout, profile, otp_request, otp_verify, refresh_token
+from .views import google_auth, logout, profile, otp_request, otp_verify, refresh_token, search_suggestions
 
 urlpatterns = [
     # version 1
@@ -10,4 +10,5 @@ urlpatterns = [
     path("v1/auth/otp/request/", otp_request, name="auth-otp-request"),
     path("v1/auth/otp/verify/", otp_verify, name="auth-otp-verify"),
     path("v1/users/profile/", profile, name="users-profile"),
+    path("v1/search-suggestions/", search_suggestions, name="search-suggestions"),
 ]

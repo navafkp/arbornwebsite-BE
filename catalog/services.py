@@ -1,4 +1,5 @@
 from django.db.models import Avg, Count, Min, Q
+from django.db.models.functions import Coalesce
 
 from utils.common_utils import SIZE_LABELS
 from .models import Cart, Category, Order, Product, Review, Size, Tag, VariantImage, VariantSizeStock, Wishlist
@@ -165,8 +166,14 @@ def _base_product_queryset():
     ).distinct()
 
 
-def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None, limit=None, page=None, page_size=None):
-    qs = _base_product_queryset()
+def list_products(
+    sizes=None, category_slug=None, tag_slug=None, base_url=None, limit=None, page=None, page_size=None, search=None,
+    sort=None, price_min=None, price_max=None,
+):
+    qs = _base_product_queryset().annotate(
+        # The price a customer actually pays — discount price if set, else base price.
+        effective_price=Coalesce("computed_base_discount_price", "computed_base_price")
+    )
 
     if sizes:
         qs = qs.filter(Q(variants__is_active=True) & _sizes_match_q(sizes, prefix="variants__"))
@@ -177,7 +184,33 @@ def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None, 
     if tag_slug:
         qs = qs.filter(tags__slug=tag_slug)
 
-    qs = qs.distinct().order_by("id")
+    if search:
+        search = search.strip()
+        search_q = (
+            Q(name__icontains=search)
+            | Q(short_description__icontains=search)
+            | Q(product_family__category__name__icontains=search)
+            | Q(tags__name__icontains=search)
+        )
+        # Size isn't free text anywhere — "Free Size" (or "M", "XL", ...) only exists as
+        # SIZE_LABELS against a code on VariantSizeStock, so match the label back to its
+        # code and search stock rows directly.
+        size_code = next((code for code, label in SIZE_LABELS.items() if label.lower() == search.lower()), None)
+        if size_code is not None:
+            search_q |= Q(variants__size_stocks__size__code=size_code, variants__size_stocks__is_active=True)
+        qs = qs.filter(search_q)
+
+    if price_min is not None:
+        qs = qs.filter(effective_price__gte=price_min)
+    if price_max is not None:
+        qs = qs.filter(effective_price__lte=price_max)
+
+    if sort == "low-high":
+        qs = qs.distinct().order_by("effective_price", "id")
+    elif sort == "high-low":
+        qs = qs.distinct().order_by("-effective_price", "id")
+    else:
+        qs = qs.distinct().order_by("id")
 
     if page is not None:
         page_size = page_size or 12

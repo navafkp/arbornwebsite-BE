@@ -106,6 +106,15 @@ def get_config_int(key, default):
     return int(value)
 
 
+def get_header_search_suggestions():
+    """Reads the 'search_keys' SystemConfig row's metadata.header_search list — editable
+    from admin without a redeploy, e.g. {"header_search": ["pyjama", "free size"]}."""
+    config = SystemConfig.objects.filter(name="search_keys", is_active=True).first()
+    if not config:
+        return []
+    return config.metadata.get("header_search", [])
+
+
 def get_global_auth_version():
     return get_config_int("global_auth_version", default=1)
 

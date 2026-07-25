@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from config.decorators import api_endpoint, api_response, get_base_url, parse_json_body
 from . import services
 
@@ -69,9 +71,30 @@ def product_list(request):
         if page_size < 1:
             return api_response(400, "Invalid page_size.")
 
+    search = request.GET.get("search")
+
+    sort = request.GET.get("sort")
+    if sort is not None and sort not in ("low-high", "high-low"):
+        return api_response(400, "Invalid sort. Use 'low-high' or 'high-low'.")
+
+    price_min = request.GET.get("price_min")
+    if price_min is not None:
+        try:
+            price_min = Decimal(price_min)
+        except InvalidOperation:
+            return api_response(400, "Invalid price_min.")
+
+    price_max = request.GET.get("price_max")
+    if price_max is not None:
+        try:
+            price_max = Decimal(price_max)
+        except InvalidOperation:
+            return api_response(400, "Invalid price_max.")
+
     payload = services.list_products(
         sizes=sizes if sizes else None, category_slug=category_slug, tag_slug=tag_slug,
-        base_url=get_base_url(request), limit=limit, page=page, page_size=page_size,
+        base_url=get_base_url(request), limit=limit, page=page, page_size=page_size, search=search,
+        sort=sort, price_min=price_min, price_max=price_max,
     )
     return api_response(200, "Products fetched successfully", data=payload)
 
