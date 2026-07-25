@@ -70,7 +70,7 @@ class ProductAdmin(DuplicateAdminMixin, admin.ModelAdmin):
     duplicate_success_message = "Product duplicated."
     readonly_fields = ["created_at", "updated_at"]
     fields = [
-        "product_family", "name", "slug", "short_description", "description",
+        "product_family", "name", "slug", "short_description", "description", "thumbnail",
         "recommended_products", "is_active", "metadata", "created_at", "updated_at",
     ]
 
