@@ -92,6 +92,42 @@ def _top_tag_payload(product):
     return {"name": tag.name, "slug": tag.slug} if tag else None
 
 
+def _variant_colors_payload(product):
+    """Every active, in-stock variant's color, as a flat list — lets the UI render color swatches for this product."""
+    return [
+        color_code for color_code in
+        product.variants.filter(is_active=True, size_stocks__is_active=True, size_stocks__stock_quantity__gt=0)
+        .distinct().order_by("display_order").values_list("color_code", flat=True)
+        if color_code
+    ]
+
+
+def _available_sizes_payload(product):
+    """Every distinct in-stock size's display label across this product's active variants.
+    A Free Size stock row (code 7) is expanded to the variant's actual min/max supported size range."""
+    codes = set()
+    stocks = VariantSizeStock.objects.filter(
+        variant__product=product, variant__is_active=True, is_active=True, stock_quantity__gt=0
+    ).select_related("variant", "size")
+    for stock in stocks:
+        if stock.size.code == 7:
+            codes.update(range(stock.variant.min_supported_size, stock.variant.max_supported_size + 1))
+        else:
+            codes.add(stock.size.code)
+    return [SIZE_LABELS.get(code, str(code)) for code in sorted(codes)]
+
+
+def _related_product_images_payload(base_url, product):
+    """Images of in-stock sibling products in the same family, excluding this one."""
+    siblings = Product.objects.filter(
+        product_family_id=product.product_family_id, is_active=True,
+        variants__is_active=True, variants__size_stocks__is_active=True,
+        variants__size_stocks__stock_quantity__gt=0,
+    ).exclude(id=product.id).distinct()
+    images = [_primary_image_url(base_url, s) for s in siblings]
+    return [img for img in images if img]
+
+
 def _product_list_item_payload(base_url, product):
     return {
         "id": product.id,
@@ -101,6 +137,9 @@ def _product_list_item_payload(base_url, product):
         "base_discount_price": product.computed_base_discount_price,
         "image_url": _primary_image_url(base_url, product),
         "tag": _top_tag_payload(product),
+        "colors": _variant_colors_payload(product),
+        "sizes": _available_sizes_payload(product),
+        "related_product_images": _related_product_images_payload(base_url, product),
     }
 
 
@@ -158,9 +197,10 @@ def list_products(sizes=None, category_slug=None, tag_slug=None, base_url=None, 
 
 
 def _variant_sizes_payload(variant, sizes=None):
-    """Per-size stock, sourced from VariantSizeStock — one row per size the variant actually stocks
-    (a free-size variant just has a single row against the "Free Size" Size entry)."""
-    stocks = variant.size_stocks.filter(is_active=True, size__is_active=True).select_related("size")
+    """Per-size stock, sourced from VariantSizeStock — one row per size the variant actually stocks.
+    A Free Size stock row (code 7) is expanded into one entry per size in the variant's
+    min/max supported range, instead of showing "Free Size" as a single entry."""
+    stocks = variant.size_stocks.filter(is_active=True, size__is_active=True).select_related("size").order_by("id")
     if sizes:
         size_filter = Q()
         for size in sizes:
@@ -169,16 +209,40 @@ def _variant_sizes_payload(variant, sizes=None):
                 q |= Q(size__code=7)
             size_filter |= q
         stocks = stocks.filter(size_filter)
-    return [
-        {
-            "variant_size_stock_id": stock.id,
-            "size_code": stock.size.code,
-            "display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
-            "measurement": stock.size.measurement,
-            "stock_quantity": stock.stock_quantity,
-        }
-        for stock in stocks
-    ]
+
+    size_measurements = {s.code: s.measurement for s in Size.objects.filter(is_active=True)}
+
+    # Keyed by size_code so a duplicate (e.g. admin adding the same size twice, or a
+    # Free Size range overlapping a direct size row) collapses to one entry — since `stocks`
+    # is ordered oldest-first, whichever row is processed last (the newest) wins.
+    by_size_code = {}
+    for stock in stocks:
+        if stock.size.code == 7:
+            codes = range(variant.min_supported_size, variant.max_supported_size + 1)
+            if sizes:
+                codes = [code for code in codes if code in sizes]
+            free_size_note = _free_size_display_text(variant)
+            for code in codes:
+                by_size_code[code] = {
+                    "variant_size_stock_id": stock.id,
+                    "size_code": code,
+                    "display_text": SIZE_LABELS.get(code, str(code)),
+                    "measurement": size_measurements.get(code, ""),
+                    "stock_quantity": stock.stock_quantity,
+                    "is_free_size": True,
+                    "free_size_note": free_size_note,
+                }
+        else:
+            by_size_code[stock.size.code] = {
+                "variant_size_stock_id": stock.id,
+                "size_code": stock.size.code,
+                "display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
+                "measurement": stock.size.measurement,
+                "stock_quantity": stock.stock_quantity,
+                "is_free_size": False,
+                "free_size_note": None,
+            }
+    return sorted(by_size_code.values(), key=lambda s: s["size_code"])
 
 
 def _variant_image_payload(base_url, image):
@@ -352,11 +416,23 @@ def _variant_primary_image_url(base_url, variant):
     return _image_url(base_url, image.image) if image else None
 
 
+def _free_size_display_text(variant):
+    """A Free Size stock row covers a range of real sizes off one shared pool —
+    say so explicitly, so the cart doesn't look like a single specific size."""
+    min_label = SIZE_LABELS.get(variant.min_supported_size, str(variant.min_supported_size))
+    max_label = SIZE_LABELS.get(variant.max_supported_size, str(variant.max_supported_size))
+    return f"Free Size (Suitable for {min_label}-{max_label})"
+
+
 def _cart_item_payload(base_url, cart_item):
     stock = cart_item.variant_size_stock
     variant = stock.variant
     product = variant.product
     price = variant.discount_price or variant.price
+    size_display_text = (
+        _free_size_display_text(variant) if stock.size.code == 7
+        else SIZE_LABELS.get(stock.size.code, str(stock.size.code))
+    )
     return {
         "id": cart_item.id,
         "product": {"id": product.id, "name": product.name, "slug": product.slug},
@@ -364,7 +440,7 @@ def _cart_item_payload(base_url, cart_item):
         "color": variant.color,
         "color_code": variant.color_code,
         "size_code": stock.size.code,
-        "size_display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
+        "size_display_text": size_display_text,
         "image_url": _variant_primary_image_url(base_url, variant),
         "price": price,
         "quantity": cart_item.quantity,
