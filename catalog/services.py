@@ -25,16 +25,30 @@ def _sizes_match_q(sizes, prefix=""):
     return q_all
 
 
+PLUS_SIZE_CODES = [6, 8, 9]  # XXXXL, 5XL, 7XL
+
+
 def get_size_list():
-    return [
+    # Individual sizes M through XXXL — Free Size (7) is handled separately per-product.
+    sizes = [
         {
             "size_code": size.code,
             "display_text": SIZE_LABELS.get(size.code, str(size.code)),
             "measurement": size.measurement,
+            "codes": [size.code],
         }
-        for size in Size.objects.filter(is_active=True)
+        for size in Size.objects.filter(is_active=True, code__lte=5)
         if size.metadata.get("is_show_on_explorer", True)
     ]
+    # "Plus Size" is a filter grouping, not a real Size row — FE sends all of `codes`
+    # together (e.g. ?size=5,6,8,9) when this option is picked, same as any other size.
+    sizes.append({
+        "size_code": "plus_size",
+        "display_text": "PLUS SIZE",
+        "measurement": "",
+        "codes": PLUS_SIZE_CODES,
+    })
+    return sizes
 
 
 def _image_url(base_url, image_field):
@@ -112,7 +126,12 @@ def _available_sizes_payload(product):
     ).select_related("variant", "size")
     for stock in stocks:
         if stock.size.code == 7:
-            codes.update(range(stock.variant.min_supported_size, stock.variant.max_supported_size + 1))
+            # 7 itself is the "Free Size" marker, not a real body size — exclude it even
+            # if the variant's range technically spans across it (e.g. min=5, max=9).
+            codes.update(
+                code for code in range(stock.variant.min_supported_size, stock.variant.max_supported_size + 1)
+                if code != 7
+            )
         else:
             codes.add(stock.size.code)
     return [SIZE_LABELS.get(code, str(code)) for code in sorted(codes)]
@@ -252,7 +271,9 @@ def _variant_sizes_payload(variant, sizes=None):
     by_size_code = {}
     for stock in stocks:
         if stock.size.code == 7:
-            codes = range(variant.min_supported_size, variant.max_supported_size + 1)
+            # 7 itself is the "Free Size" marker, not a real body size — exclude it even
+            # if the variant's range technically spans across it (e.g. min=5, max=9).
+            codes = [code for code in range(variant.min_supported_size, variant.max_supported_size + 1) if code != 7]
             if sizes:
                 codes = [code for code in codes if code in sizes]
             free_size_note = _free_size_display_text(variant)
@@ -420,7 +441,8 @@ def _wishlist_item_payload(base_url, product):
         "image_url": _primary_image_url(base_url, product),
         "tag": _top_tag_payload(product),
         "variants": [
-            _variant_payload(base_url, v) for v in product.variants.filter(is_active=True)
+            _variant_payload(base_url, v)
+            for v in product.variants.filter(is_active=True, size_stocks__is_active=True).distinct()
         ],
         "review_summary": _review_summary_payload(product),
     }

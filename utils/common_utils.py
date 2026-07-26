@@ -7,7 +7,7 @@ def generate_sku():
         next_number = 1 if last_stock is None else last_stock.id + 1
     return f"ARB-{next_number:06d}"
 
-SIZE_LABELS = {1: "M",2: "L",3: "XL",4: "XXL",5: "XXXL",6: "XXXXL",7: "Free Size"}
+SIZE_LABELS = {1: "M",2: "L",3: "XL",4: "XXL",5: "XXXL",6: "XXXXL",7: "Free Size",8: "5XL",9: "7XL"}
 
 GENDER_CHOICES = [("male", "Male"),("female", "Female"),("other", "Other")]
 
