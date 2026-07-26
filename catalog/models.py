@@ -78,6 +78,10 @@ class Product(ActivatableModel, TimeStampedModel):
     thumbnail_image = ResizedImageField(
         upload_to="products/thumbnails/", force_format="WEBP", quality=90, blank=True, null=True
     )
+    instagram_reel_url = models.CharField(blank=True)
+    instagram_thumbnail_url = ResizedImageField(
+        upload_to="products/instagram_thumbnails/", force_format="WEBP", quality=90, blank=True, null=True
+    )
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     base_discount_price = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True
@@ -234,8 +238,6 @@ class Order(TimeStampedModel, ActivatableModel):
     customer_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20,blank=True)
     state = models.CharField(max_length=20,blank=True)
-    variant_size_stock = models.ForeignKey(VariantSizeStock, on_delete=models.PROTECT, related_name="orders")
-    quantity = models.PositiveSmallIntegerField(default=1)
     collected_amount = models.DecimalField(max_digits=10,decimal_places=2)
     shipping_charge = models.DecimalField(max_digits=10,decimal_places=2)
     transport_mode = models.CharField(max_length=30)
@@ -243,3 +245,15 @@ class Order(TimeStampedModel, ActivatableModel):
 
     class Meta:
         verbose_name_plural = "Temporary orders"
+
+
+class OrderItem(TimeStampedModel):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    variant_size_stock = models.ForeignKey(VariantSizeStock, on_delete=models.PROTECT, related_name="order_items")
+    quantity = models.PositiveSmallIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.order_id} - {self.variant_size_stock} x{self.quantity}"
+
+    class Meta:
+        verbose_name_plural = "order items"

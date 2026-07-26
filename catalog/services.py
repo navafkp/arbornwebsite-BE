@@ -398,6 +398,8 @@ def get_product_detail(slug, base_url=None, sizes=None):
         "base_price": product.computed_base_price,
         "base_discount_price": product.computed_base_discount_price,
         "thumbnail_image": _image_url(base_url, product.thumbnail_image),
+        "instagram_reel_url": product.instagram_reel_url or None,
+        "instagram_thumbnail_url": _image_url(base_url, product.instagram_thumbnail_url),
         "category": {
             "id": product.product_family.category_id,
             "name": product.product_family.category.name,
@@ -577,12 +579,12 @@ def remove_cart_items(user_profile, item_ids):
     return deleted
 
 
-def _order_payload(base_url, order):
-    stock = order.variant_size_stock
+def _order_item_payload(base_url, item):
+    stock = item.variant_size_stock
     variant = stock.variant
     product = variant.product
     return {
-        "id": order.id,
+        "id": item.id,
         "product": {"id": product.id, "name": product.name, "slug": product.slug},
         "variant_id": variant.id,
         "color": variant.color,
@@ -590,17 +592,26 @@ def _order_payload(base_url, order):
         "size_code": stock.size.code,
         "size_display_text": SIZE_LABELS.get(stock.size.code, str(stock.size.code)),
         "image_url": _variant_primary_image_url(base_url, variant),
-        "quantity": order.quantity,
+        "quantity": item.quantity,
+    }
+
+
+def _order_payload(base_url, order):
+    return {
+        "id": order.id,
         "collected_amount": order.collected_amount,
         "shipping_charge": order.shipping_charge,
         "transport_mode": order.transport_mode,
         "state": order.state,
         "created_at": order.created_at,
+        "items": [_order_item_payload(base_url, item) for item in order.items.all()],
     }
 
 
 def get_orders(user_profile, base_url=None):
-    orders = Order.objects.filter(user_profile=user_profile).select_related(
-        "variant_size_stock__size", "variant_size_stock__variant__product"
-    ).prefetch_related("variant_size_stock__variant__images").order_by("-created_at")
+    orders = Order.objects.filter(user_profile=user_profile).prefetch_related(
+        "items__variant_size_stock__size",
+        "items__variant_size_stock__variant__product",
+        "items__variant_size_stock__variant__images",
+    ).order_by("-created_at")
     return [_order_payload(base_url, order) for order in orders]
