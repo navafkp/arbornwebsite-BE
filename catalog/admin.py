@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from utils.admin_common import DuplicateAdminMixin
-from utils.common_utils import SIZE_LABELS,TRANSPORT_MODE_CHOICES
+from utils.common_utils import SIZE_LABELS,TRANSPORT_MODE_CHOICES,VERIFICATION_STATUS
 from utils.catalog_duplicators import catalog_duplicator
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -140,11 +140,19 @@ class VariantSizeStockAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ["product", "user_profile", "rating", "title", "is_active", "created_at", "updated_at"]
-    list_filter = ["rating", "is_active"]
+    list_display = ["product", "user_profile", "rating", "title", "verification_status", "is_active", "created_at", "updated_at"]
+    list_filter = ["rating", "verification_status", "is_active"]
     search_fields = ["product__name", "title", "review"]
     readonly_fields = ["created_at", "updated_at"]
-    fields = ["product", "user_profile", "rating", "title", "review", "is_active", "created_at", "updated_at"]
+    fields = [
+        "product", "user_profile", "rating", "title", "review", "verification_status",
+        "is_active", "created_at", "updated_at",
+    ]
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "verification_status":
+            kwargs["widget"] = forms.Select(choices=VERIFICATION_STATUS)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 @admin.register(Wishlist)

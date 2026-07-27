@@ -195,7 +195,8 @@ class Review(TimeStampedModel, ActivatableModel):
     )
     rating = models.PositiveSmallIntegerField()
     title = models.CharField(max_length=255, blank=True)
-    review = models.TextField()
+    review = models.TextField(blank=True)
+    verification_status = models.CharField(max_length=10,blank=True,null=True)
 
     def __str__(self):
         return self.title

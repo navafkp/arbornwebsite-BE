@@ -221,12 +221,8 @@ def product_review_create(request, slug):
     if not 1 <= rating <= 5:
         return api_response(400, "rating must be an integer between 1 and 5.")
 
-    review_text = data.get("review")
-    if not review_text:
-        return api_response(400, "review is required.")
-
     payload = services.create_review(
-        request.user.profile, slug, rating, review_text, title=data.get("title", "")
+        request.user.profile, slug, rating, data.get("review", ""), title=data.get("title", "")
     )
     if payload is None:
         return api_response(404, "Product not found.")

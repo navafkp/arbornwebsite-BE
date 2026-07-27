@@ -330,6 +330,7 @@ def _review_payload(review):
         "title": review.title,
         "review": review.review,
         "reviewer_name": review.user_profile.full_name or "Anonymous",
+        "verification_status": review.verification_status,
         "created_at": review.created_at,
     }
 
@@ -352,11 +353,14 @@ def create_review(user_profile, slug, rating, review_text, title=""):
     except Product.DoesNotExist:
         return None
 
-    review, _ = Review.objects.update_or_create(
+    review, created = Review.objects.update_or_create(
         product=product,
         user_profile=user_profile,
         defaults={"rating": rating, "title": title, "review": review_text},
     )
+    if created:
+        review.verification_status = "pending"
+        review.save(update_fields=["verification_status"])
     return _review_payload(review)
 
 
