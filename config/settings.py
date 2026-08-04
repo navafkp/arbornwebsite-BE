@@ -63,8 +63,8 @@ TEMPLATES = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "https://navafkp.github.io",
-    "http://localhost:3000", 
+    "https://arborn.shop",
+    "https://www.arborn.shop",
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
