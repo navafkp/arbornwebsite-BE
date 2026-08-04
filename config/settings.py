@@ -135,6 +135,12 @@ CORS_ALLOWED_ORIGINS = config(
     cast=Csv(),
 )
 
+# CSRF_TRUSTED_ORIGINS = config(
+#     "CSRF_TRUSTED_ORIGINS",
+#     cast=Csv(),
+#     default="https://api.arborn.shop",
+# )
+
 # --- Django REST Framework ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

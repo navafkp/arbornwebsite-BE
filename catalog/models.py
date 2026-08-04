@@ -82,10 +82,6 @@ class Product(ActivatableModel, TimeStampedModel):
     instagram_thumbnail_url = ResizedImageField(
         upload_to="products/instagram_thumbnails/", force_format="WEBP", quality=90, blank=True, null=True
     )
-    base_price = models.DecimalField(max_digits=10, decimal_places=2)
-    base_discount_price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True
-    )
     metadata = models.JSONField(default=dict, blank=True)
     tags = models.ManyToManyField(Tag, through="ProductTag", related_name="products")
     recommended_products = models.ManyToManyField("self",symmetrical=False,blank=True,related_name="recommended_by")
