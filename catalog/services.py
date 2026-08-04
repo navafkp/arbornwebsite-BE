@@ -319,7 +319,7 @@ def _variant_payload(base_url, variant, sizes=None):
         "color": variant.color,
         "color_code": variant.color_code,
         "price": variant.price,
-        "discount_price": variant.discount_price,
+        "discount_price": variant.discount_price if variant.discount_price and variant.discount_price > 0 else None,
         "stock_quantity": sum(s["stock_quantity"] for s in sizes_payload),
         "sizes": sizes_payload,
         "images": [_variant_image_payload(base_url, image) for image in variant.images.all()],
