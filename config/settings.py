@@ -62,11 +62,6 @@ TEMPLATES = [
     },
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "https://arborn.shop",
-    "https://www.arborn.shop",
-]
-
 WSGI_APPLICATION = "config.wsgi.application"
 
 # --- Database (Postgres) ---

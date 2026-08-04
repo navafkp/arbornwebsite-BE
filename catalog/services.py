@@ -169,7 +169,10 @@ def _annotate_prices(qs):
     of a stored Product.base_price — avoids it drifting out of sync with variant prices."""
     return qs.annotate(
         computed_base_price=Min("variants__price", filter=Q(variants__is_active=True)),
-        computed_base_discount_price=Min("variants__discount_price", filter=Q(variants__is_active=True)),
+        computed_base_discount_price=Min(
+            "variants__discount_price",
+            filter=Q(variants__is_active=True, variants__discount_price__gt=0),
+        ),
     )
 
 
@@ -462,7 +465,8 @@ def get_wishlist(user_profile, base_url=None):
         .annotate(
             computed_base_price=Min("product__variants__price", filter=Q(product__variants__is_active=True)),
             computed_base_discount_price=Min(
-                "product__variants__discount_price", filter=Q(product__variants__is_active=True)
+                "product__variants__discount_price",
+                filter=Q(product__variants__is_active=True, product__variants__discount_price__gt=0),
             ),
         )
     )
