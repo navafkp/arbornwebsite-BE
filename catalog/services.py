@@ -138,13 +138,17 @@ def _available_sizes_payload(product):
 
 
 def _related_product_images_payload(base_url, product):
-    """Images of in-stock sibling products in the same family, excluding this one."""
+    """Images of in-stock sibling products in the same family, excluding this one.
+    Uses each sibling's thumbnail image, falling back to a variant image if no thumbnail is set."""
     siblings = Product.objects.filter(
         product_family_id=product.product_family_id, is_active=True,
         variants__is_active=True, variants__size_stocks__is_active=True,
         variants__size_stocks__stock_quantity__gt=0,
     ).exclude(id=product.id).distinct()
-    images = [_primary_image_url(base_url, s) for s in siblings]
+    images = [
+        _image_url(base_url, s.thumbnail_image) or _primary_image_url(base_url, s)
+        for s in siblings
+    ]
     return [img for img in images if img]
 
 
